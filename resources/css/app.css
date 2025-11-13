@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+[x-cloak] {
+    display: none;
+}
+
+body {
+    background-color: rgb(214, 207, 207);
+}
+
+#koleje {
+    display: flex;
+    padding: 5px;
+    justify-content: space-between;
+}
+
+.kolej {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+}
+
+.kolej span {
+    font-weight: bold;
+}
+
+.hodnoceni-obal {
+    height: 150px;
+    width: 50px;
+    background-color: rgb(164, 166, 167);
+    /*1. varianta zarovnani */
+    /*display: flex;
+    flex-direction: column-reverse;*/
+    position: relative;
+}
+
+.hodnoceni-body {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
+
+.kolej img {
+    max-width: 100px;
+}

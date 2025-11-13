@@ -1,0 +1,29 @@
+$mainColor: rgb(31, 27, 118);
+$textColor: White;
+$footerHeight: 100px;
+
+body > div {
+    min-height: calc(100vh - $footerHeight);
+}
+
+footer {
+    width: 100%;    
+    background-color: $mainColor;
+    color: $textColor;
+    //footer > div
+    & > div {
+        height: $footerHeight;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .footer--links {
+        display: flex;
+        gap: 25px;
+
+        a {
+            
+        }
+    }
+}
