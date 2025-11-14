@@ -1,37 +1,26 @@
 <?php
 
-use App\Models\College;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\MapController;
+use Illuminate\Support\Facades\Route; use App\Http\Controllers\MapController; use Illuminate\Support\Facades\Auth; use Illuminate\Http\Request; // Odstranil jsem starý kód 'use App\Models\College;', který se zdál být neaktivní
 
-/* ZÍKA KÓD
-Route::get('/', function () {
+/* |-------------------------------------------------------------------------- | Web Routes |-------------------------------------------------------------------------- */
 
-    $koleje = College::all();
+// TOTO JE VAŠE NOVÁ ROUTA PRO / S POŽADOVANOU ODHLAŠOVACÍ LOGIKOU 
+Route::get('/', function (Request $request) {
 
-    $maxHodnota = College::max('hodnoceni');
-    $pixelNaBod = 0;
-    
-    if(0 != $maxHodnota) {
-        $pixelNaBod = 150 / $maxHodnota;   
-    }    
+// Zkontroluje, zda je uživatel přihlášen
+if (Auth::check()) { Auth::guard('web')->logout(); // Odhlásí ho
+$request->session()->invalidate(); // Zneplatní jeho session
+$request->session()->regenerateToken(); // Vytvoří nový CSRF token 
+}
 
-    return view('welcome', [
-        'colleges' => $koleje, 'pomocnaProm' => $pixelNaBod
-    ]);
+// Poté vždy zobrazí přihlašovací stránku (jak jste měl předtím) 
+return view('auth.login');
+
 });
 
-Route::view('/video', 'videoHarry')->name("videjko"); 
-*/
-
-Route::get('/', function () {
-    // Jednoduše vrátíme pohled (view), který používá Jetstream pro přihlášení.
-    // Není potřeba žádné přesměrování.
-    return view('auth.login');
-});
-
+// Tato routa je veřejná pro všechny
 Route::get('/mapa', [MapController::class, 'index'])->name('mapa');
 
-
-
-Route::middleware('guest');
+// TOTO JE DŮLEŽITÉ: Routy pro přihlášené uživatele (profil, atd.) // Bez tohoto by Jetstream nefungoval správně.
+Route::middleware([ 'auth:sanctum', config('jetstream.auth_session'), 'verified', ])->group(function () { // Zde bude v budoucnu váš profil, atd.
+});
