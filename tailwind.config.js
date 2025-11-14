@@ -16,6 +16,14 @@ export default {
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
             },
+            
+            colors: {
+                // Žlutá barva (figma)
+                'zluta': '#EAB308',
+            },
+            backgroundImage: {
+                'bar-pozadi': "url('../images/pozadi-bar.jpg')",
+            }
         },
     },
 
