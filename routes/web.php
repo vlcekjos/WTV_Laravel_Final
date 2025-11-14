@@ -15,12 +15,9 @@ Route::get('/', function () {
     //     $pixelNaBod = 150 / $maxHodnota;   
     // }    
 
-    // return view('welcome', [
-    //     'colleges' => $koleje, 'pomocnaProm' => $pixelNaBod
-    // ]);
-
-    return view('welcome');
-
+    return view('welcome', [
+        'colleges' => $koleje, 'pomocnaProm' => $pixelNaBod
+    ]);
 });
 
 Route::view('/video', 'videoHarry')->name("videjko"); 
