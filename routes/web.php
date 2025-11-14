@@ -5,19 +5,22 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
 
-    $koleje = College::all();
-    //dd($koleje);
+    // $koleje = College::all();
+    // //dd($koleje);
 
-    $maxHodnota = College::max('hodnoceni');
-    $pixelNaBod = 0;
+    // $maxHodnota = College::max('hodnoceni');
+    // $pixelNaBod = 0;
 
-    if(0 != $maxHodnota) {
-        $pixelNaBod = 150 / $maxHodnota;   
-    }    
+    // if(0 != $maxHodnota) {
+    //     $pixelNaBod = 150 / $maxHodnota;   
+    // }    
 
-    return view('welcome', [
-        'colleges' => $koleje, 'pomocnaProm' => $pixelNaBod
-    ]);
+    // return view('welcome', [
+    //     'colleges' => $koleje, 'pomocnaProm' => $pixelNaBod
+    // ]);
+
+    return view('welcome');
+
 });
 
 Route::view('/video', 'videoHarry')->name("videjko"); 
