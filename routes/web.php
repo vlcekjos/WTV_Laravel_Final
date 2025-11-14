@@ -1,8 +1,9 @@
 <?php
 
-use Illuminate\Support\Facades\Route; use App\Http\Controllers\MapController; use Illuminate\Support\Facades\Auth; use Illuminate\Http\Request; // Odstranil jsem starý kód 'use App\Models\College;', který se zdál být neaktivní
-
-/* |-------------------------------------------------------------------------- | Web Routes |-------------------------------------------------------------------------- */
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\MapController;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 
 // TOTO JE VAŠE NOVÁ ROUTA PRO / S POŽADOVANOU ODHLAŠOVACÍ LOGIKOU 
 Route::get('/', function (Request $request) {

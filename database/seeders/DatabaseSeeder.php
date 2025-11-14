@@ -24,7 +24,7 @@ class DatabaseSeeder extends Seeder
         ]);
         */
 
-        $koleje = [
+        /*$koleje = [
             ["nazev" => "Zmijozel", "obrazek" => "zmijozel.png", "barva" => "green"],
             ["nazev" => "Nebelvír", "obrazek" => "lev.png", "barva" => "red"],
             ["nazev" => "Havraspár", "obrazek" => "havran.png", "barva" => "blue"],
@@ -38,6 +38,6 @@ class DatabaseSeeder extends Seeder
             $kolejPromenna = College::create($kolej);
             $kolejPromenna->hodnoceni = rand(15, 150);
             $kolejPromenna->save();
-        }        
+        }*/     
     }
 }
