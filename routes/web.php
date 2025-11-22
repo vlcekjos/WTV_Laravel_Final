@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MapController;
+use App\Http\Controllers\ReviewController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 
@@ -21,6 +22,9 @@ return view('auth.login');
 
 // Tato routa je veřejná pro všechny
 Route::get('/mapa', [MapController::class, 'index'])->name('mapa');
+
+//Routa pro odeslání recenze
+Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store');
 
 // TOTO JE DŮLEŽITÉ: Routy pro přihlášené uživatele (profil, atd.) // Bez tohoto by Jetstream nefungoval správně.
 Route::middleware([ 'auth:sanctum', config('jetstream.auth_session'), 'verified', ])->group(function () { // Zde bude v budoucnu váš profil, atd.
