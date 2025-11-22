@@ -27,6 +27,7 @@
         </div>
 
         @livewireScripts
+        <!--  
         <footer>
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div>
@@ -39,5 +40,6 @@
                 </div>
             </div>            
         </footer>
+        -->
     </body>
 </html>
