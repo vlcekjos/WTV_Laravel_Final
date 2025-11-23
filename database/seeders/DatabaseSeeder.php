@@ -17,6 +17,15 @@ class DatabaseSeeder extends Seeder
     {
         // 1. Vytvoření uživatelů
         // Použijeme firstOrCreate, aby se nevytvářeli duplicitně, pokud seeder spustíš víckrát
+        $user0 = User::firstOrCreate(
+            ['email' => 'admin@e'],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('admin'),
+                'is_admin' => true,
+            ]
+        );
+        
         $user1 = User::firstOrCreate(
             ['email' => 'uzivatel1@e'],
             [

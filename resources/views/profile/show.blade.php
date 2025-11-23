@@ -65,7 +65,7 @@
                     Moje recenze
                 </button>
 
-                @if(auth()->user()->role === 'admin')
+                @if(auth()->user()->isAdmin())
                     <button class="text-red-500 whitespace-nowrap py-4 px-1 border-b-2 border-transparent font-medium text-sm disabled cursor-not-allowed opacity-50" title="Admin sekce (Coming Soon)">
                         Admin Panel
                     </button>
