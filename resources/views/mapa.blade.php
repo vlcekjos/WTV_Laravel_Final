@@ -2,16 +2,13 @@
     @section('styles')
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
         <style>
-            /* Tmavý styl mapy */
             .leaflet-layer,
             .leaflet-control-zoom-in,
             .leaflet-control-zoom-out,
             .leaflet-control-attribution {
                 filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
             }
-            /* Fix pro mapové dlaždice */
             img.leaflet-marker-icon { filter: invert(0%); }
-            /* Animace hvězdiček */
             .star-hover:hover { transform: scale(1.2); }
         </style>
     @endsection
@@ -20,7 +17,8 @@
          x-data="{ 
             selectedPub: null, 
             isWritingReview: false,
-            isLoggedIn: {{ auth()->check() ? 'true' : 'false' }}, 
+            isLoggedIn: {{ auth()->check() ? 'true' : 'false' }},
+            currentUserId: {{ auth()->id() ?? 'null' }}, // Potřebujeme ID pro nalezení vlastní recenze
             reviewForm: { rating: 0, comment: '' },
             isLoading: false,
             
@@ -34,21 +32,37 @@
                 this.reviewForm.rating = val;
             },
 
-            // Výpočet průměrného hodnocení
             get averageRating() {
                 if (!this.selectedPub || !this.selectedPub.reviews || this.selectedPub.reviews.length === 0) return 0;
                 let sum = this.selectedPub.reviews.reduce((a, b) => a + b.rating, 0);
                 return (sum / this.selectedPub.reviews.length).toFixed(1);
             },
 
-            // Formátování data (DD.MM.YYYY)
+            // Zjistí, zda uživatel už tuto hospodu hodnotil
+            get myReview() {
+                if (!this.isLoggedIn || !this.selectedPub || !this.selectedPub.reviews) return null;
+                return this.selectedPub.reviews.find(r => r.user_id === this.currentUserId);
+            },
+
             formatDate(dateString) {
                 if (!dateString) return '';
                 const date = new Date(dateString);
                 return date.toLocaleDateString('cs-CZ');
             },
 
-            // Funkce pro odeslání recenze na server
+            // Funkce pro otevření formuláře (řeší předvyplnění)
+            openReviewForm() {
+                if (this.myReview) {
+                    // Pokud existuje recenze, předvyplníme data
+                    this.reviewForm.rating = this.myReview.rating;
+                    this.reviewForm.comment = this.myReview.comment;
+                } else {
+                    // Jinak čistý formulář
+                    this.reviewForm = { rating: 0, comment: '' };
+                }
+                this.isWritingReview = true;
+            },
+
             async submitReview() {
                 if (!this.isLoggedIn) {
                     if(confirm('Pro vložení recenze se musíte přihlásit. Přejít na přihlášení?')) {
@@ -82,7 +96,6 @@
 
                     if (response.ok) {
                         alert('Recenze byla úspěšně uložena!');
-                        // Obnovíme stránku, aby se načetla nová data z databáze
                         window.location.reload();
                     } else {
                         alert('Chyba: ' + (data.message || 'Něco se pokazilo.'));
@@ -105,7 +118,7 @@
                  x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="-translate-x-full opacity-0" 
                  x-transition:enter-end="translate-x-0 opacity-100"
-                 class="w-full lg:w-2/5 bg-gray-900 border-r border-zluta p-6 overflow-y-auto absolute lg:relative left-0 h-full z-20 shadow-2xl"
+                 class="w-full lg:w-2/5 bg-black/90 border-r border-zluta p-6 overflow-y-auto absolute lg:relative left-0 h-full z-20 shadow-2xl"
                  style="display: none;">
                 
                 <!-- 1. DETAIL HOSPODY -->
@@ -117,10 +130,8 @@
                         </button>
                     </div>
 
-                    <!-- Průměrné hodnocení -->
                     <div class="flex items-center mb-4 text-zluta">
                         <template x-for="i in 5">
-                            <!-- Dynamické vykreslení plných/prázdných hvězd dle průměru -->
                             <svg class="w-6 h-6" :class="i <= Math.round(averageRating) ? 'fill-current' : 'text-gray-600 fill-current'" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                         </template>
                         <span class="ml-2 text-white" x-text="'(' + averageRating + ')'"></span>
@@ -128,9 +139,20 @@
 
                     <p class="text-gray-300 mb-8" x-text="selectedPub?.description"></p>
 
-                    <button @click="isWritingReview = true" class="w-full py-3 bg-zluta text-black font-bold rounded hover:bg-yellow-500 transition mb-8 uppercase tracking-wider">
-                        Přidat recenzi
+                    <!-- ZMĚNA: Tlačítko mění text a volá openReviewForm -->
+                    <button @click="openReviewForm()" class="w-full py-3 bg-zluta text-black font-bold rounded hover:bg-yellow-500 transition mb-4 uppercase tracking-wider">
+                        <span x-text="myReview ? 'UPRAVIT MOU RECENZI' : 'PŘIDAT RECENZI'"></span>
                     </button>
+                    
+                    <!-- Informace, že už jsem hodnotil -->
+                    <template x-if="myReview">
+                        <p class="text-center text-sm text-gray-400 mb-8 italic">
+                            Tuto hospodu jste již hodnotili (<span x-text="myReview.rating"></span>/5).
+                        </p>
+                    </template>
+                    <template x-if="!myReview">
+                        <div class="mb-8"></div> <!-- Spacer -->
+                    </template>
 
                     <!-- VÝPIS RECENZÍ -->
                     <div class="space-y-6">
@@ -138,19 +160,20 @@
                             Recenze uživatelů (<span x-text="selectedPub?.reviews ? selectedPub.reviews.length : 0"></span>)
                         </h3>
                         
-                        <!-- Pokud nejsou žádné recenze -->
                         <template x-if="!selectedPub?.reviews || selectedPub.reviews.length === 0">
                             <p class="text-gray-500 italic">Zatím žádné recenze. Buďte první!</p>
                         </template>
 
-                        <!-- Cyklus přes recenze -->
                         <template x-for="review in selectedPub?.reviews" :key="review.id">
                             <div class="bg-gray-800 p-4 rounded border border-gray-700">
                                 <div class="flex justify-between text-sm text-gray-400 mb-2">
-                                    <!-- Jméno uživatele -->
-                                    <span class="font-bold text-white" x-text="review.user ? review.user.name : 'Neznámý uživatel'"></span>
-                                    
-                                    <!-- Hvězdičky a datum -->
+                                    <div>
+                                        <span class="font-bold text-white" x-text="review.user ? review.user.name : 'Neznámý uživatel'"></span>
+                                        <!-- Značka (Já) u mojí recenze -->
+                                        <template x-if="review.user_id === currentUserId">
+                                            <span class="ml-2 text-xs bg-zluta text-black px-1 rounded">Já</span>
+                                        </template>
+                                    </div>
                                     <div class="flex items-center space-x-2">
                                         <div class="flex text-zluta text-xs">
                                             <template x-for="i in 5">
@@ -169,11 +192,11 @@
                 <!-- 2. FORMULÁŘ PRO RECENZI -->
                 <div x-show="isWritingReview" x-transition:enter="transition ease-in duration-200">
                     <div class="mb-8 text-center border-b border-gray-800 pb-4">
-                        <h2 class="text-2xl font-bold text-white mb-1">Nová recenze</h2>
+                        <!-- ZMĚNA: Nadpis podle kontextu -->
+                        <h2 class="text-2xl font-bold text-white mb-1" x-text="myReview ? 'Úprava recenze' : 'Nová recenze'"></h2>
                         <p class="text-zluta text-sm" x-text="selectedPub?.name"></p>
                     </div>
 
-                    <!-- Hvězdičky formuláře -->
                     <div class="mb-8">
                         <label class="block text-gray-400 text-sm mb-3">Kolik hvězd udělíš?</label>
                         <div class="flex items-center justify-center space-x-2">
@@ -181,31 +204,21 @@
                                 <button @click="setRating(i)" 
                                         class="focus:outline-none transition transform star-hover"
                                         :class="i <= reviewForm.rating ? 'text-zluta' : 'text-gray-600'">
-                                    <svg class="w-10 h-10 fill-current" viewBox="0 0 24 24">
-                                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-                                    </svg>
+                                    <svg class="w-10 h-10 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                                 </button>
                             </template>
                         </div>
-                        <p class="text-center text-xs text-gray-500 mt-2" x-text="reviewForm.rating + '/5'"></p>
                     </div>
 
-                    <!-- Textarea -->
                     <div class="mb-8">
                         <label class="block text-gray-400 text-sm mb-2">Text recenze</label>
                         <textarea x-model="reviewForm.comment" rows="6" class="w-full bg-black border border-gray-700 text-white rounded p-3 focus:border-zluta focus:ring-1 focus:ring-zluta" placeholder="Napiš nám, jak ti chutnalo..."></textarea>
                     </div>
 
                     <div class="flex space-x-4">
-                        <button @click="isWritingReview = false" class="w-1/2 py-3 bg-white text-black font-bold rounded hover:bg-gray-200 transition">
-                            Zrušit
-                        </button>
-                        
-                        <!-- TLAČÍTKO ODESLAT -->
-                        <button @click="submitReview()" 
-                                :disabled="isLoading"
-                                class="w-1/2 py-3 bg-zluta text-black font-bold rounded hover:bg-yellow-500 transition shadow-[0_0_15px_rgba(234,179,8,0.3)] disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span x-show="!isLoading">Ohodnotit</span>
+                        <button @click="isWritingReview = false" class="w-1/2 py-3 bg-white text-black font-bold rounded hover:bg-gray-200 transition">Zrušit</button>
+                        <button @click="submitReview()" :disabled="isLoading" class="w-1/2 py-3 bg-zluta text-black font-bold rounded hover:bg-yellow-500 transition shadow-[0_0_15px_rgba(234,179,8,0.3)] disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span x-show="!isLoading">Uložit</span>
                             <span x-show="isLoading">Odesílám...</span>
                         </button>
                     </div>
@@ -227,14 +240,12 @@
                 setTimeout(() => { map.invalidateSize(); }, 200);
                 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
-                // Data z Controlleru
                 const pubs = @json($pubs);
 
                 pubs.forEach(pub => {
                     if (pub.latitude && pub.longitude) {
                         var marker = L.marker([pub.latitude, pub.longitude]).addTo(map);
                         marker.on('click', function() {
-                            // Pošleme celou entitu hospody do Alpine (včetně načtených reviews)
                             window.dispatchEvent(new CustomEvent('pub-selected', { detail: pub }));
                             map.setView([pub.latitude, pub.longitude], 15);
                         });
