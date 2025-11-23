@@ -2,42 +2,84 @@
 
 namespace Database\Seeders;
 
+use App\Models\Pub;
+use App\Models\Review;
 use App\Models\User;
-use App\Models\College;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-        /*
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test___@example.com',
-        ]);
-        */
+        // 1. Vytvoření uživatelů
+        // Použijeme firstOrCreate, aby se nevytvářeli duplicitně, pokud seeder spustíš víckrát
+        $user1 = User::firstOrCreate(
+            ['email' => 'uzivatel1@example.com'],
+            [
+                'name' => 'Uživatel 1',
+                'password' => Hash::make('uzivatel1'),
+            ]
+        );
 
-        /*$koleje = [
-            ["nazev" => "Zmijozel", "obrazek" => "zmijozel.png", "barva" => "green"],
-            ["nazev" => "Nebelvír", "obrazek" => "lev.png", "barva" => "red"],
-            ["nazev" => "Havraspár", "obrazek" => "havran.png", "barva" => "blue"],
-            ["nazev" => "Mrzimor", "obrazek" => "jezevec.png", "barva" => "yellow"],
-        ];
+        $user2 = User::firstOrCreate(
+            ['email' => 'uzivatel2@example.com'],
+            [
+                'name' => 'Uživatel 2',
+                'password' => Hash::make('uzivatel2'),
+            ]
+        );
 
-        foreach($koleje as $kolej) {
-            //insert rovnou vklada do db 
-            //College::insert();
-            //create -> udela instanci, ale nevlozi do db
-            $kolejPromenna = College::create($kolej);
-            $kolejPromenna->hodnoceni = rand(15, 150);
-            $kolejPromenna->save();
-        }*/     
+        // 2. Vytvoření hospod
+        $pub1 = Pub::firstOrCreate(
+            ['name' => 'Restaurace U Mansfelda'], // Podle souřadnic
+            [
+                'description' => 'Tradiční plzeňská restaurace s výbornou kuchyní a tankovým pivem.',
+                'latitude' => 49.7485872,
+                'longitude' => 13.3764331,
+                'street' => 'Dřevěná 9',
+                'city' => 'Plzeň',
+            ]
+        );
+
+        $pub2 = Pub::firstOrCreate(
+            ['name' => 'Šenk Na Parkánu'], // Podle souřadnic
+            [
+                'description' => 'Hospoda přímo spojená s Pivovarským muzeem. Čepují zde nefiltrovaný Prazdroj.',
+                'latitude' => 49.7458767,
+                'longitude' => 13.3800058,
+                'street' => 'Veleslavínova 4',
+                'city' => 'Plzeň',
+            ]
+        );
+
+        // 3. Vytvoření recenzí (Každý uživatel jednu)
+        
+        // Uživatel 1 hodnotí Hospodu 1
+        Review::updateOrCreate(
+            [
+                'user_id' => $user1->id,
+                'pub_id' => $pub1->id,
+            ],
+            [
+                'rating' => 5,
+                'comment' => 'Naprosto skvělé pivo a gulášek jako od maminky! Doporučuji všem.',
+            ]
+        );
+
+        // Uživatel 2 hodnotí Hospodu 2
+        Review::updateOrCreate(
+            [
+                'user_id' => $user2->id,
+                'pub_id' => $pub2->id,
+            ],
+            [
+                'rating' => 4,
+                'comment' => 'Krásné prostředí a historie dýchá z každého rohu. Obsluha byla trochu pomalejší, ale jídlo super.',
+            ]
+        );
     }
 }
