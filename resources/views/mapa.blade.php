@@ -2,14 +2,31 @@
     @section('styles')
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
         <style>
+            /* Tmavý styl mapy */
             .leaflet-layer,
             .leaflet-control-zoom-in,
             .leaflet-control-zoom-out,
             .leaflet-control-attribution {
                 filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
             }
+            /* Fix pro mapové dlaždice - důležité, aby logo nebylo invertované! */
             img.leaflet-marker-icon { filter: invert(0%); }
+            
+            /* Animace hvězdiček ve formuláři */
             .star-hover:hover { transform: scale(1.2); }
+
+            /* Styl pro Tooltip (Bublina nad hospodou) */
+            .custom-tooltip {
+                background-color: rgba(0, 0, 0, 0.9) !important;
+                border: 1px solid #EAB308 !important;
+                color: #fff !important;
+                border-radius: 0.5rem;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+                font-family: 'Figtree', sans-serif;
+                padding: 0;
+            }
+            .leaflet-tooltip-top:before { border-top-color: #EAB308 !important; }
+            .leaflet-tooltip-bottom:before { border-bottom-color: #EAB308 !important; }
         </style>
     @endsection
 
@@ -18,7 +35,7 @@
             selectedPub: null, 
             isWritingReview: false,
             isLoggedIn: {{ auth()->check() ? 'true' : 'false' }},
-            currentUserId: {{ auth()->id() ?? 'null' }}, // Potřebujeme ID pro nalezení vlastní recenze
+            currentUserId: {{ auth()->id() ?? 'null' }},
             reviewForm: { rating: 0, comment: '' },
             isLoading: false,
             
@@ -38,7 +55,6 @@
                 return (sum / this.selectedPub.reviews.length).toFixed(1);
             },
 
-            // Zjistí, zda uživatel už tuto hospodu hodnotil
             get myReview() {
                 if (!this.isLoggedIn || !this.selectedPub || !this.selectedPub.reviews) return null;
                 return this.selectedPub.reviews.find(r => r.user_id === this.currentUserId);
@@ -50,14 +66,11 @@
                 return date.toLocaleDateString('cs-CZ');
             },
 
-            // Funkce pro otevření formuláře (řeší předvyplnění)
             openReviewForm() {
                 if (this.myReview) {
-                    // Pokud existuje recenze, předvyplníme data
                     this.reviewForm.rating = this.myReview.rating;
                     this.reviewForm.comment = this.myReview.comment;
                 } else {
-                    // Jinak čistý formulář
                     this.reviewForm = { rating: 0, comment: '' };
                 }
                 this.isWritingReview = true;
@@ -139,22 +152,19 @@
 
                     <p class="text-gray-300 mb-8" x-text="selectedPub?.description"></p>
 
-                    <!-- ZMĚNA: Tlačítko mění text a volá openReviewForm -->
                     <button @click="openReviewForm()" class="w-full py-3 bg-zluta text-black font-bold rounded hover:bg-yellow-500 transition mb-4 uppercase tracking-wider">
                         <span x-text="myReview ? 'UPRAVIT MOU RECENZI' : 'PŘIDAT RECENZI'"></span>
                     </button>
                     
-                    <!-- Informace, že už jsem hodnotil -->
                     <template x-if="myReview">
                         <p class="text-center text-sm text-gray-400 mb-8 italic">
                             Tuto hospodu jste již hodnotili (<span x-text="myReview.rating"></span>/5).
                         </p>
                     </template>
                     <template x-if="!myReview">
-                        <div class="mb-8"></div> <!-- Spacer -->
+                        <div class="mb-8"></div>
                     </template>
 
-                    <!-- VÝPIS RECENZÍ -->
                     <div class="space-y-6">
                         <h3 class="text-xl text-white font-semibold border-b border-gray-700 pb-2">
                             Recenze uživatelů (<span x-text="selectedPub?.reviews ? selectedPub.reviews.length : 0"></span>)
@@ -169,7 +179,6 @@
                                 <div class="flex justify-between text-sm text-gray-400 mb-2">
                                     <div>
                                         <span class="font-bold text-white" x-text="review.user ? review.user.name : 'Neznámý uživatel'"></span>
-                                        <!-- Značka (Já) u mojí recenze -->
                                         <template x-if="review.user_id === currentUserId">
                                             <span class="ml-2 text-xs bg-zluta text-black px-1 rounded">Já</span>
                                         </template>
@@ -192,7 +201,6 @@
                 <!-- 2. FORMULÁŘ PRO RECENZI -->
                 <div x-show="isWritingReview" x-transition:enter="transition ease-in duration-200">
                     <div class="mb-8 text-center border-b border-gray-800 pb-4">
-                        <!-- ZMĚNA: Nadpis podle kontextu -->
                         <h2 class="text-2xl font-bold text-white mb-1" x-text="myReview ? 'Úprava recenze' : 'Nová recenze'"></h2>
                         <p class="text-zluta text-sm" x-text="selectedPub?.name"></p>
                     </div>
@@ -240,11 +248,42 @@
                 setTimeout(() => { map.invalidateSize(); }, 200);
                 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
+                // --- DEFINICE IKONY ---
+                var beerIcon = L.icon({
+                    iconUrl: '{{ asset("images/logo.png") }}', // Cesta k logu
+                    iconSize:     [32, 32], // Velikost ikony
+                    iconAnchor:   [16, 32], // Bod ikony, který ukazuje na souřadnice (střed dole)
+                    tooltipAnchor:[0, -32]  // Kde se zobrazí tooltip (nad ikonou)
+                });
+
                 const pubs = @json($pubs);
 
                 pubs.forEach(pub => {
                     if (pub.latitude && pub.longitude) {
-                        var marker = L.marker([pub.latitude, pub.longitude]).addTo(map);
+                        // ZMĚNA: Přidán parametr { icon: beerIcon }
+                        var marker = L.marker([pub.latitude, pub.longitude], { icon: beerIcon }).addTo(map);
+                        
+                        // Tooltip logika
+                        let avgRating = 0;
+                        if (pub.reviews && pub.reviews.length > 0) {
+                            let sum = pub.reviews.reduce((a, b) => a + b.rating, 0);
+                            avgRating = Math.round(sum / pub.reviews.length);
+                        }
+                        let stars = '★'.repeat(avgRating) + '☆'.repeat(5 - avgRating);
+                        
+                        marker.bindTooltip(`
+                            <div class="p-2 text-center">
+                                <div class="font-bold text-white text-sm mb-1">${pub.name}</div>
+                                <div class="text-zluta text-xs tracking-widest">${stars}</div>
+                            </div>
+                        `, {
+                            permanent: false,
+                            direction: 'top',
+                            className: 'custom-tooltip',
+                            opacity: 1,
+                            offset: [0, -5] // Upraveno pro novou ikonu
+                        });
+
                         marker.on('click', function() {
                             window.dispatchEvent(new CustomEvent('pub-selected', { detail: pub }));
                             map.setView([pub.latitude, pub.longitude], 15);
