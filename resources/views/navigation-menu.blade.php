@@ -1,4 +1,4 @@
-<nav x-data="{ open: false }" class="bg-gray-940 border-b border-zluta">
+<nav x-data="{ open: false }" class="bg-black border-b border-zluta">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
@@ -14,7 +14,7 @@
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     <a href="{{ route('mapa') }}" 
                        class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out {{ request()->routeIs('mapa') ? 'border-zluta text-zluta' : 'border-transparent text-gray-300 hover:text-white hover:border-gray-300' }}">
-                        {{ __('Mapa') }}
+                        Mapa
                     </a>
                 </div>
             </div>
@@ -40,17 +40,39 @@
                             </x-slot>
 
                             <x-slot name="content">
+                                <!-- Nadpis sekce -->
                                 <div class="block px-4 py-2 text-xs text-gray-400">
-                                    {{ __('Manage Account') }}
+                                    Správa účtu
                                 </div>
-                                <x-dropdown-link href="{{ route('profile.show') }}">
-                                    {{ __('Profile') }}
-                                </x-dropdown-link>
+
+                                <!-- 
+                                    LOGIKA PŘEPÍNÁNÍ ODKAZŮ:
+                                    Pokud jsme na stránce profilu (route 'profile.show'), ukážeme odkaz na Mapu.
+                                    Jinak ukážeme odkaz na Profil.
+                                -->
+                                @if(request()->routeIs('profile.show'))
+                                    <x-dropdown-link href="{{ route('mapa') }}">
+                                        Zpět na mapu
+                                    </x-dropdown-link>
+                                @else
+                                    <x-dropdown-link href="{{ route('profile.show') }}">
+                                        Můj Profil
+                                    </x-dropdown-link>
+                                @endif
+
+                                @if (Laravel\Jetstream\Jetstream::hasApiFeatures())
+                                    <x-dropdown-link href="{{ route('api-tokens.index') }}">
+                                        API Tokeny
+                                    </x-dropdown-link>
+                                @endif
+
                                 <div class="border-t border-gray-200"></div>
+
+                                <!-- Odhlášení -->
                                 <form method="POST" action="{{ route('logout') }}" x-data>
                                     @csrf
                                     <x-dropdown-link href="{{ route('logout') }}" @click.prevent="$root.submit();">
-                                        {{ __('Log Out') }}
+                                        Odhlásit se
                                     </x-dropdown-link>
                                 </form>
                             </x-slot>
@@ -78,11 +100,11 @@
         </div>
     </div>
 
-    <!-- Responsive Navigation Menu -->
+    <!-- Responsive Navigation Menu (Mobil) -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden bg-gray-900">
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link href="{{ route('mapa') }}" :active="request()->routeIs('mapa')" class="text-white">
-                {{ __('Mapa') }}
+                Mapa
             </x-responsive-nav-link>
         </div>
 
@@ -100,13 +122,27 @@
                     </div>
                 </div>
                 <div class="mt-3 space-y-1">
-                    <x-responsive-nav-link href="{{ route('profile.show') }}" :active="request()->routeIs('profile.show')" class="text-gray-300 hover:text-white">
-                        {{ __('Profile') }}
-                    </x-responsive-nav-link>
+                    <!-- Stejná logika přepínání i pro mobil -->
+                    @if(request()->routeIs('profile.show'))
+                        <x-responsive-nav-link href="{{ route('mapa') }}" :active="false" class="text-gray-300 hover:text-white">
+                            Zpět na mapu
+                        </x-responsive-nav-link>
+                    @else
+                        <x-responsive-nav-link href="{{ route('profile.show') }}" :active="request()->routeIs('profile.show')" class="text-gray-300 hover:text-white">
+                            Můj Profil
+                        </x-responsive-nav-link>
+                    @endif
+
+                    @if (Laravel\Jetstream\Jetstream::hasApiFeatures())
+                        <x-responsive-nav-link href="{{ route('api-tokens.index') }}" :active="request()->routeIs('api-tokens.index')" class="text-gray-300 hover:text-white">
+                            API Tokeny
+                        </x-responsive-nav-link>
+                    @endif
+
                     <form method="POST" action="{{ route('logout') }}" x-data>
                         @csrf
                         <x-responsive-nav-link href="{{ route('logout') }}" @click.prevent="$root.submit();" class="text-gray-300 hover:text-white">
-                            {{ __('Log Out') }}
+                            Odhlásit se
                         </x-responsive-nav-link>
                     </form>
                 </div>
@@ -117,10 +153,10 @@
             <div class="pt-4 pb-1 border-t border-gray-700">
                 <div class="mt-3 space-y-1">
                     <x-responsive-nav-link href="{{ route('login') }}" :active="request()->routeIs('login')" class="text-gray-300">
-                        {{ __('Přihlásit se') }}
+                        Přihlásit se
                     </x-responsive-nav-link>
                     <x-responsive-nav-link href="{{ route('register') }}" :active="request()->routeIs('register')" class="text-gray-300">
-                        {{ __('Registrovat') }}
+                        Registrovat
                     </x-responsive-nav-link>
                 </div>
             </div>

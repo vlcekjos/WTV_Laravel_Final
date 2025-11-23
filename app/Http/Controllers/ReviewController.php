@@ -24,7 +24,6 @@ class ReviewController extends Controller
 
         // 3. Uložení recenze
         // Použijeme updateOrCreate, aby uživatel nemohl hodnotit jednu hospodu 2x (pouze upravil svou starou)
-        // Pokud chcete povolit více recenzí, použijte Review::create(...)
         $review = Review::updateOrCreate(
             [
                 'user_id' => Auth::id(),
@@ -37,5 +36,20 @@ class ReviewController extends Controller
         );
 
         return response()->json(['message' => 'Recenze byla uložena!', 'review' => $review], 201);
+    }
+
+    // --- NOVÁ METODA PRO MAZÁNÍ ---
+    public function destroy(Review $review)
+    {
+        // 1. Bezpečnostní ověření: Maže recenzi její autor nebo admin?
+        if (Auth::id() !== $review->user_id && Auth::user()->role !== 'admin') {
+            abort(403, 'Nemáte oprávnění smazat tuto recenzi.');
+        }
+
+        // 2. Smazání
+        $review->delete();
+
+        // 3. Návrat zpět s hláškou (pro profilovou stránku)
+        return back()->banner('Recenze byla úspěšně smazána.');
     }
 }

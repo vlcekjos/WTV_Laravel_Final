@@ -6,26 +6,35 @@ use App\Http\Controllers\ReviewController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 
-// TOTO JE VAŠE NOVÁ ROUTA PRO / S POŽADOVANOU ODHLAŠOVACÍ LOGIKOU 
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
+
 Route::get('/', function (Request $request) {
-
-// Zkontroluje, zda je uživatel přihlášen
-if (Auth::check()) { Auth::guard('web')->logout(); // Odhlásí ho
-$request->session()->invalidate(); // Zneplatní jeho session
-$request->session()->regenerateToken(); // Vytvoří nový CSRF token 
-}
-
-// Poté vždy zobrazí přihlašovací stránku (jak jste měl předtím) 
-return view('auth.login');
-
+    // Logika pro odhlášení při návštěvě root URL
+    if (Auth::check()) {
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+    }
+    return view('auth.login');
 });
 
-// Tato routa je veřejná pro všechny
 Route::get('/mapa', [MapController::class, 'index'])->name('mapa');
 
-//Routa pro odeslání recenze
+// API pro ukládání recenzí (z mapy)
 Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store');
 
-// TOTO JE DŮLEŽITÉ: Routy pro přihlášené uživatele (profil, atd.) // Bez tohoto by Jetstream nefungoval správně.
-Route::middleware([ 'auth:sanctum', config('jetstream.auth_session'), 'verified', ])->group(function () { // Zde bude v budoucnu váš profil, atd.
+// NOVÁ ROUTA: Mazání recenzí (využívá Model Binding {review})
+Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])->name('reviews.destroy');
+
+
+Route::middleware([
+    'auth:sanctum',
+    config('jetstream.auth_session'),
+    'verified',
+])->group(function () {
+    // Zde jsou routy pro přihlášené (např. dashboard/profil, které řeší Jetstream)
 });
