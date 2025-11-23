@@ -9,9 +9,23 @@
             .leaflet-control-attribution {
                 filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
             }
-            /* Fix pro mapové dlaždice - důležité, aby logo nebylo invertované! */
-            img.leaflet-marker-icon { filter: invert(0%); }
             
+            /* ZMĚNA ZDE: Fix pro mapové dlaždice A PŘIDÁNÍ STÍNU LOGU */
+            img.leaflet-marker-icon {
+                /*
+                  invert(0%) - zajistí, že se logo nepřebarví do negativu kvůli tmavému režimu
+                  drop-shadow() - přidá stín kopírující tvar půllitru.
+                  Hodnoty: posun X, posun Y, rozostření, barva (černá s 60% průhledností)
+                */
+                filter: invert(0%) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+                transition: filter 0.3s ease; /* Jemný přechod při změně */
+            }
+            
+            /* Volitelné: Zvýraznění markeru při najetí myší */
+            img.leaflet-marker-icon:hover {
+                 filter: invert(0%) drop-shadow(0 6px 12px rgba(234, 179, 8, 0.7)); /* Žlutý stín při hoveru */
+            }
+
             /* Animace hvězdiček ve formuláři */
             .star-hover:hover { transform: scale(1.2); }
 
@@ -260,7 +274,7 @@
 
                 pubs.forEach(pub => {
                     if (pub.latitude && pub.longitude) {
-                        // ZMĚNA: Přidán parametr { icon: beerIcon }
+                        // Použití vlastní ikony
                         var marker = L.marker([pub.latitude, pub.longitude], { icon: beerIcon }).addTo(map);
                         
                         // Tooltip logika
@@ -281,7 +295,7 @@
                             direction: 'top',
                             className: 'custom-tooltip',
                             opacity: 1,
-                            offset: [0, -5] // Upraveno pro novou ikonu
+                            offset: [0, -5]
                         });
 
                         marker.on('click', function() {
