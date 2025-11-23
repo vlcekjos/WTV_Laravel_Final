@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
         // 1. Vytvoření uživatelů
         // Použijeme firstOrCreate, aby se nevytvářeli duplicitně, pokud seeder spustíš víckrát
         $user1 = User::firstOrCreate(
-            ['email' => 'uzivatel1@example.com'],
+            ['email' => 'uzivatel1@e'],
             [
                 'name' => 'Uživatel 1',
                 'password' => Hash::make('uzivatel1'),
@@ -26,7 +26,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $user2 = User::firstOrCreate(
-            ['email' => 'uzivatel2@example.com'],
+            ['email' => 'uzivatel2@e'],
             [
                 'name' => 'Uživatel 2',
                 'password' => Hash::make('uzivatel2'),
