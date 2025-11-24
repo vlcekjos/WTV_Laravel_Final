@@ -32,11 +32,11 @@ Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])->name('
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/admin/users/{user}', [AdminController::class, 'destroyUser'])->name('admin.users.destroy');
     
+    // NOVÁ ROUTA PRO ZMĚNU ROLE
+    Route::put('/admin/users/{user}/toggle-role', [AdminController::class, 'toggleUserRole'])->name('admin.users.toggle-role');
+    
     Route::post('/admin/pubs', [AdminController::class, 'storePub'])->name('admin.pubs.store');
-    
-    // NOVÁ ROUTA PRO UPDATE
     Route::put('/admin/pubs/{pub}', [AdminController::class, 'updatePub'])->name('admin.pubs.update');
-    
     Route::delete('/admin/pubs/{pub}', [AdminController::class, 'destroyPub'])->name('admin.pubs.destroy');
 });
 

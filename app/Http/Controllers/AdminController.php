@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 
 class AdminController extends Controller
 {
+    // Smazání uživatele
     public function destroyUser(User $user)
     {
         if (!Auth::user()->isAdmin()) {
@@ -24,6 +25,27 @@ class AdminController extends Controller
         return back()->banner('Uživatel byl úspěšně smazán.');
     }
 
+    // NOVÁ METODA: ZMĚNA ROLE
+    public function toggleUserRole(User $user)
+    {
+        if (!Auth::user()->isAdmin()) {
+            abort(403, 'Nemáte oprávnění.');
+        }
+
+        if ($user->id === Auth::id()) {
+            return back()->dangerBanner('Nemůžete odebrat administrátorská práva sami sobě.');
+        }
+
+        // Prohození hodnoty booleanu (true -> false, false -> true)
+        $user->update([
+            'is_admin' => !$user->is_admin
+        ]);
+
+        $roleName = $user->is_admin ? 'Admin' : 'Uživatel';
+        return back()->banner("Role uživatele {$user->name} byla změněna na: {$roleName}.");
+    }
+
+    // Přidání nové hospody
     public function storePub(Request $request)
     {
         if (!Auth::user()->isAdmin()) {
@@ -44,7 +66,7 @@ class AdminController extends Controller
         return response()->json(['message' => 'Hospoda byla úspěšně vytvořena!'], 201);
     }
 
-    // --- NOVÁ METODA: ÚPRAVA HOSPODY ---
+    // Úprava hospody
     public function updatePub(Request $request, Pub $pub)
     {
         if (!Auth::user()->isAdmin()) {
@@ -65,6 +87,7 @@ class AdminController extends Controller
         return response()->json(['message' => 'Hospoda byla úspěšně upravena!'], 200);
     }
 
+    // Smazání hospody
     public function destroyPub(Pub $pub)
     {
         if (!Auth::user()->isAdmin()) {
