@@ -5,7 +5,6 @@
         </h2>
     </x-slot>
 
-    <!-- Rozšířený x-data o logiku editace -->
     <div x-data="{ 
         activeTab: 'settings', 
         editingReview: null,
@@ -19,13 +18,8 @@
             this.editForm.pub_id = review.pub_id;
         },
 
-        closeEditModal() {
-            this.editingReview = null;
-        },
-
-        setEditRating(val) {
-            this.editForm.rating = val;
-        },
+        closeEditModal() { this.editingReview = null; },
+        setEditRating(val) { this.editForm.rating = val; },
 
         async saveReview() {
             this.isSaving = true;
@@ -35,45 +29,57 @@
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
                     body: JSON.stringify(this.editForm)
                 });
-
-                if (response.ok) {
-                    alert('Recenze byla upravena!');
-                    window.location.reload();
-                } else {
-                    alert('Chyba při ukládání.');
-                }
-            } catch (e) {
-                alert('Chyba komunikace.');
-            } finally {
-                this.isSaving = false;
-            }
+                if (response.ok) { alert('Upraveno!'); window.location.reload(); } 
+                else { alert('Chyba.'); }
+            } catch (e) { alert('Chyba komunikace.'); } 
+            finally { this.isSaving = false; }
         }
     }">
         
         <!-- ZÁLOŽKY -->
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <div class="border-b border-gray-700 flex space-x-8">
+            <!-- Na mobilech umožníme scrollování záložek do boku -->
+            <div class="border-b border-gray-700 flex space-x-8 overflow-x-auto">
+                
+                <!-- Běžný uživatel -->
                 <button @click="activeTab = 'settings'" 
-                        :class="activeTab === 'settings' ? 'border-zluta text-zluta' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300'"
+                        :class="activeTab === 'settings' ? 'border-zluta text-zluta' : 'border-transparent text-gray-400 hover:text-gray-200'"
                         class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
                     Nastavení účtu
                 </button>
 
                 <button @click="activeTab = 'reviews'" 
-                        :class="activeTab === 'reviews' ? 'border-zluta text-zluta' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300'"
+                        :class="activeTab === 'reviews' ? 'border-zluta text-zluta' : 'border-transparent text-gray-400 hover:text-gray-200'"
                         class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
                     Moje recenze
                 </button>
 
+                <!-- Admin Sekce -->
                 @if(auth()->user()->isAdmin())
-                    <button class="text-red-500 whitespace-nowrap py-4 px-1 border-b-2 border-transparent font-medium text-sm disabled cursor-not-allowed opacity-50" title="Admin sekce (Coming Soon)">
-                        Admin Panel
+                    <div class="border-l border-gray-700 mx-4 h-6 self-center"></div> <!-- Oddělovač -->
+
+                    <button @click="activeTab = 'admin_reviews'" 
+                            :class="activeTab === 'admin_reviews' ? 'border-red-500 text-red-500' : 'border-transparent text-gray-400 hover:text-red-400'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        Správa recenzí
+                    </button>
+
+                    <button @click="activeTab = 'admin_users'" 
+                            :class="activeTab === 'admin_users' ? 'border-red-500 text-red-500' : 'border-transparent text-gray-400 hover:text-red-400'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        Správa uživatelů
+                    </button>
+
+                    <button @click="activeTab = 'admin_pubs'" 
+                            :class="activeTab === 'admin_pubs' ? 'border-red-500 text-red-500' : 'border-transparent text-gray-400 hover:text-red-400'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">
+                        Správa podniků
                     </button>
                 @endif
             </div>
         </div>
 
-        <!-- OBSAH: NASTAVENÍ -->
+        <!-- 1. NASTAVENÍ ÚČTU -->
         <div x-show="activeTab === 'settings'" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             @if (Laravel\Fortify\Features::canUpdateProfileInformation())
                 @livewire('profile.update-profile-information-form')
@@ -81,107 +87,164 @@
             @endif
 
             @if (Laravel\Fortify\Features::enabled(Laravel\Fortify\Features::updatePasswords()))
-                <div class="mt-10 sm:mt-0">
-                    @livewire('profile.update-password-form')
-                </div>
+                <div class="mt-10 sm:mt-0">@livewire('profile.update-password-form')</div>
                 <x-section-border />
             @endif
 
             @if (Laravel\Fortify\Features::canManageTwoFactorAuthentication())
-                <div class="mt-10 sm:mt-0">
-                    @livewire('profile.two-factor-authentication-form')
-                </div>
+                <div class="mt-10 sm:mt-0">@livewire('profile.two-factor-authentication-form')</div>
                 <x-section-border />
             @endif
 
-            <div class="mt-10 sm:mt-0">
-                @livewire('profile.logout-other-browser-sessions-form')
-            </div>
+            <div class="mt-10 sm:mt-0">@livewire('profile.logout-other-browser-sessions-form')</div>
 
             @if (Laravel\Jetstream\Jetstream::hasAccountDeletionFeatures())
                 <x-section-border />
-                <div class="mt-10 sm:mt-0">
-                    @livewire('profile.delete-user-form')
-                </div>
+                <div class="mt-10 sm:mt-0">@livewire('profile.delete-user-form')</div>
             @endif
         </div>
-<!-- OBSAH: MOJE RECENZE -->
+
+        <!-- 2. MOJE RECENZE (Běžný uživatel) -->
         <div x-show="activeTab === 'reviews'" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8" style="display: none;">
-            <div class="md:grid md:grid-cols-3 md:gap-6">
-                <x-section-title>
-                    <x-slot name="title">Historie recenzí</x-slot>
-                    <x-slot name="description">Zde vidíte všechny recenze, které jste napsali.</x-slot>
-                </x-section-title>
-
-                <div class="mt-5 md:mt-0 md:col-span-2 space-y-6">
-                    @forelse(auth()->user()->reviews()->with('pub')->latest()->get() as $review)
-                        <div class="bg-black/75 border border-zluta shadow sm:rounded-lg p-6 transition hover:bg-gray-900">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <h4 class="text-xl font-bold text-white">
-                                        {{ $review->pub ? $review->pub->name : 'Neznámá hospoda' }}
-                                    </h4>
-                                    <p class="text-sm text-gray-400">{{ $review->created_at->format('d.m.Y H:i') }}</p>
-                                </div>
-                                
-                                <div class="flex items-center space-x-2">
-                                    <!-- Hvězdičky -->
-                                    <div class="text-zluta text-lg mr-2">
-                                        {{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}
-                                    </div>
-
-                                    <!-- TLAČÍTKO UPRAVIT (Tužka) -->
-                                    <button @click="openEditModal({{ $review }})" class="text-gray-500 hover:text-zluta transition duration-200 p-1 rounded hover:bg-gray-800" title="Upravit recenzi">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                                        </svg>
-                                    </button>
-
-                                    <!-- TLAČÍTKO SMAZAT (Koš) -->
-                                    <form method="POST" action="{{ route('reviews.destroy', $review) }}" onsubmit="return confirm('Opravdu chcete smazat tuto recenzi? Tato akce je nevratná.');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="text-gray-500 hover:text-red-500 transition duration-200 p-1 rounded hover:bg-gray-800" title="Smazat recenzi">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                            </svg>
-                                        </button>
-                                    </form>
-                                </div>
+            <x-section-title>
+                <x-slot name="title">Moje recenze</x-slot>
+                <x-slot name="description">Historie vámi napsaných recenzí.</x-slot>
+            </x-section-title>
+            <div class="mt-6 space-y-6">
+                @forelse(auth()->user()->reviews()->with('pub')->latest()->get() as $review)
+                    <!-- Karta recenze -->
+                    <div class="bg-black/75 border border-zluta shadow sm:rounded-lg p-6">
+                        <div class="flex justify-between">
+                            <h4 class="text-xl font-bold text-white">{{ $review->pub ? $review->pub->name : 'Neznámá' }}</h4>
+                            <div class="flex items-center gap-2">
+                                <div class="text-zluta">{{ str_repeat('★', $review->rating) }}</div>
+                                <!-- Edit -->
+                                <button @click="openEditModal({{ $review }})" class="text-gray-400 hover:text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                                <!-- Delete -->
+                                <form method="POST" action="{{ route('reviews.destroy', $review) }}" onsubmit="return confirm('Smazat?');">
+                                    @csrf @method('DELETE')
+                                    <button class="text-gray-400 hover:text-red-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                </form>
                             </div>
-                            
-                            <p class="mt-4 text-gray-300 bg-gray-900/50 p-3 rounded border border-gray-700 italic">
-                                "{{ $review->comment }}"
-                            </p>
                         </div>
-                    @empty
-                        <div class="bg-black/75 border border-gray-700 shadow sm:rounded-lg p-6 text-center text-gray-400">
-                            Zatím jste nenapsali žádnou recenzi.
-                            <a href="{{ route('mapa') }}" class="text-zluta hover:underline block mt-2">Jít na mapu a ohodnotit hospodu</a>
-                        </div>
-                    @endforelse
-                </div>
+                        <p class="mt-2 text-gray-300 italic">"{{ $review->comment }}"</p>
+                    </div>
+                @empty
+                    <div class="text-gray-400 text-center">Žádné recenze.</div>
+                @endforelse
             </div>
         </div>
 
-        <!-- MODÁLNÍ OKNO PRO EDITACI -->
-        <div x-show="editingReview" 
-             class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0 z-50"
-             style="display: none;">
-            
-            <div x-show="editingReview" class="fixed inset-0 transform transition-all" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <!-- 3. ADMIN: SPRÁVA RECENZÍ (Všechny recenze) -->
+        @if(auth()->user()->isAdmin())
+        <div x-show="activeTab === 'admin_reviews'" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8" style="display: none;">
+            <x-section-title>
+                <x-slot name="title">Všechny recenze</x-slot>
+                <x-slot name="description">Administrátorský přehled všech recenzí v systému.</x-slot>
+            </x-section-title>
+            <div class="mt-6 space-y-4">
+                <!-- Načteme úplně všechny recenze -->
+                @foreach(\App\Models\Review::with(['user', 'pub'])->latest()->get() as $review)
+                    <div class="bg-gray-900 border border-gray-700 p-4 rounded flex justify-between items-start">
+                        <div>
+                            <div class="text-zluta font-bold">{{ $review->pub->name ?? 'Neznámá' }}</div>
+                            <div class="text-sm text-gray-400">Autor: <span class="text-white">{{ $review->user->name ?? 'Smazaný' }}</span></div>
+                            <div class="mt-1 text-white italic">"{{ $review->comment }}"</div>
+                            <div class="text-xs text-gray-500 mt-1">{{ $review->created_at->format('d.m.Y H:i') }} | Hodnocení: {{ $review->rating }}/5</div>
+                        </div>
+                        <form method="POST" action="{{ route('reviews.destroy', $review) }}" onsubmit="return confirm('ADMIN: Opravdu smazat cizí recenzi?');">
+                            @csrf @method('DELETE')
+                            <button class="text-red-500 hover:text-red-700 font-bold text-sm border border-red-500 px-3 py-1 rounded hover:bg-red-500 hover:text-black transition">
+                                SMAZAT
+                            </button>
+                        </form>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
+        <!-- 4. ADMIN: SPRÁVA UŽIVATELŮ -->
+        <div x-show="activeTab === 'admin_users'" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8" style="display: none;">
+            <x-section-title>
+                <x-slot name="title">Uživatelé</x-slot>
+                <x-slot name="description">Seznam registrovaných uživatelů.</x-slot>
+            </x-section-title>
+            <div class="mt-6 overflow-x-auto">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-gray-800 text-zluta uppercase">
+                        <tr>
+                            <th class="px-4 py-3">ID</th>
+                            <th class="px-4 py-3">Jméno</th>
+                            <th class="px-4 py-3">Email</th>
+                            <th class="px-4 py-3">Role</th>
+                            <th class="px-4 py-3 text-right">Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        @foreach(\App\Models\User::all() as $user)
+                            <tr class="hover:bg-gray-800">
+                                <td class="px-4 py-3">{{ $user->id }}</td>
+                                <td class="px-4 py-3 font-bold text-white">{{ $user->name }}</td>
+                                <td class="px-4 py-3">{{ $user->email }}</td>
+                                <td class="px-4 py-3">
+                                    @if($user->isAdmin()) <span class="text-red-500 font-bold">Admin</span>
+                                    @else User @endif
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    @if($user->id !== auth()->id())
+                                        <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Smazat uživatele {{ $user->name }} a všechna jeho data?');" class="inline">
+                                            @csrf @method('DELETE')
+                                            <button class="text-red-500 hover:underline">Smazat</button>
+                                        </form>
+                                    @else
+                                        <span class="text-gray-600 italic">(Ty)</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 5. ADMIN: SPRÁVA PODNIKŮ -->
+        <div x-show="activeTab === 'admin_pubs'" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8" style="display: none;">
+            <x-section-title>
+                <x-slot name="title">Hospody</x-slot>
+                <x-slot name="description">Seznam podniků v databázi.</x-slot>
+            </x-section-title>
+            <div class="mt-6 space-y-4">
+                @foreach(\App\Models\Pub::all() as $pub)
+                    <div class="bg-gray-900 border border-gray-700 p-4 rounded flex justify-between items-center">
+                        <div>
+                            <div class="text-white font-bold text-lg">{{ $pub->name }}</div>
+                            <div class="text-gray-500 text-sm">{{ $pub->street }}, {{ $pub->city }}</div>
+                            <div class="text-gray-600 text-xs mt-1">Lat: {{ $pub->latitude }}, Lng: {{ $pub->longitude }}</div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <!-- Mazání podniku -->
+                            <form method="POST" action="{{ route('admin.pubs.destroy', $pub) }}" onsubmit="return confirm('Smazat hospodu {{ $pub->name }}? Smažou se i všechny její recenze!');">
+                                @csrf @method('DELETE')
+                                <button class="text-red-500 hover:text-white border border-red-500 hover:bg-red-600 px-3 py-1 rounded transition">
+                                    SMAZAT
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        <!-- MODÁLNÍ OKNO PRO EDITACI (stejné jako předtím) -->
+        <div x-show="editingReview" class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0 z-50" style="display: none;">
+            <div class="fixed inset-0 transform transition-all" x-show="editingReview" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
                 <div class="absolute inset-0 bg-gray-900 opacity-75"></div>
             </div>
-
-            <div x-show="editingReview" 
-                 class="mb-6 bg-black border border-zluta rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full sm:max-w-lg sm:mx-auto"
-                 x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
-                
+            <div class="mb-6 bg-black border border-zluta rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full sm:max-w-lg sm:mx-auto" x-show="editingReview">
                 <div class="px-6 py-4">
                     <div class="text-lg font-medium text-zluta">Upravit recenzi</div>
-                    
                     <div class="mt-4">
-                        <!-- Hvězdy -->
                         <div class="flex justify-center space-x-2 mb-4">
                             <template x-for="i in 5">
                                 <button @click="setEditRating(i)" class="focus:outline-none transition transform hover:scale-110" :class="i <= editForm.rating ? 'text-zluta' : 'text-gray-600'">
@@ -189,12 +252,9 @@
                                 </button>
                             </template>
                         </div>
-
-                        <!-- Textarea -->
                         <textarea x-model="editForm.comment" rows="5" class="w-full bg-gray-900 border border-gray-700 text-white rounded p-3 focus:border-zluta focus:ring-1 focus:ring-zluta"></textarea>
                     </div>
                 </div>
-
                 <div class="px-6 py-4 bg-gray-900/50 text-right">
                     <button @click="closeEditModal()" class="mr-2 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600">Zrušit</button>
                     <button @click="saveReview()" :disabled="isSaving" class="px-4 py-2 bg-zluta text-black font-bold rounded hover:bg-yellow-500 disabled:opacity-50">
