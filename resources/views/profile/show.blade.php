@@ -1,48 +1,51 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-zluta leading-tight">
-            {{ __('Můj Profil') }}
-        </h2>
-    </x-slot>
-
-    <div x-data="{ 
-        activeTab: localStorage.getItem('activeProfileTab') || 'settings',
+    @section('styles')
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
         
-        // --- DATA PRO MOJE RECENZE (Načteno z DB do JS pro filtrování) ---
-        myReviews: {{ Js::from(auth()->user()->reviews()->with('pub')->latest()->get()) }},
-        searchMyReviews: '',
-        sortMyReviews: 'newest', // newest, oldest, highest, lowest
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
 
-        // Editace
-        editingReview: null,
-        editForm: { rating: 0, comment: '', pub_id: null },
-        
-        // Admin data
-        viewingUser: null,
-        searchUser: '',
-        searchPub: '',
+        <style>
+            /* Tmavý styl mapy */
+            .leaflet-layer,
+            .leaflet-control-zoom-in,
+            .leaflet-control-zoom-out,
+            .leaflet-control-attribution {
+                filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+            }
+            
+            /* Ikony a stíny */
+            img.leaflet-marker-icon {
+                filter: invert(0%) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+                transition: filter 0.3s ease;
+            }
+            img.leaflet-marker-icon:hover {
+                 filter: invert(0%) drop-shadow(0 6px 12px rgba(234, 179, 8, 0.7));
+            }
 
-        // Hospody
-        isPubModalOpen: false,
-        isEditingPub: false,
-        editingPubId: null,
-        pubForm: { name: '', description: '', latitude: '', longitude: '', street: '', city: 'Plzeň' },
+            .star-hover:hover { transform: scale(1.2); }
 
-        isSaving: false,
+            /* Tooltipy */
+            .custom-tooltip {
+                background-color: rgba(0, 0, 0, 0.9) !important;
+                border: 1px solid #EAB308 !important;
+                color: #fff !important;
+                border-radius: 0.5rem;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+                font-family: 'Figtree', sans-serif;
+                padding: 0;
+            }
+            .leaflet-tooltip-top:before { border-top-color: #EAB308 !important; }
+            .leaflet-tooltip-bottom:before { border-bottom-color: #EAB308 !important; }
 
-        switchTab(tab) {
-            this.activeTab = tab;
-            localStorage.setItem('activeProfileTab', tab);
-        },
-
-        // --- COMPUTED LOGIKA PRO FILTROVÁNÍ RECENZÍ ---
-        get filteredMyReviews() {
-            let result = this.myReviews;
-
-            // 1. Hledání
-            if (this.searchMyReviews) {
-                const lower = this.searchMyReviews.toLowerCase();
-                result = result.filter(r => r.pub && r.pub.name.toLowerCase().includes(lower));
+            /* NOVÉ: Styl pro Clustery (shluky) v tmavém režimu */
+            .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+                background-color: rgba(234, 179, 8, 0.6) !important; /* Žlutá průhledná */
+            }
+            .marker-cluster div {
+                background-color: rgba(0, 0, 0, 0.8) !important; /* Černý střed */
+                color: #EAB308 !important; /* Žluté číslo */
+                font-weight: bold;
             }
             if (this.sortMyReviews === 'newest') result = result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             else if (this.sortMyReviews === 'oldest') result = result.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
