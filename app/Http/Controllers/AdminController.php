@@ -9,26 +9,62 @@ use Illuminate\Support\Facades\Auth;
 
 class AdminController extends Controller
 {
-    // Smazání uživatele
     public function destroyUser(User $user)
     {
-        // 1. Kontrola oprávnění
         if (!Auth::user()->isAdmin()) {
             abort(403, 'Nemáte oprávnění.');
         }
 
-        // 2. Ochrana proti smazání sebe sama
         if ($user->id === Auth::id()) {
             return back()->dangerBanner('Nemůžete smazat svůj vlastní účet v administraci.');
         }
 
-        // 3. Smazání
         $user->delete();
 
         return back()->banner('Uživatel byl úspěšně smazán.');
     }
 
-    // Smazání hospody
+    public function storePub(Request $request)
+    {
+        if (!Auth::user()->isAdmin()) {
+            return response()->json(['message' => 'Nemáte oprávnění.'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+            'street' => 'nullable|string',
+            'city' => 'nullable|string',
+        ]);
+
+        Pub::create($validated);
+
+        return response()->json(['message' => 'Hospoda byla úspěšně vytvořena!'], 201);
+    }
+
+    // --- NOVÁ METODA: ÚPRAVA HOSPODY ---
+    public function updatePub(Request $request, Pub $pub)
+    {
+        if (!Auth::user()->isAdmin()) {
+            return response()->json(['message' => 'Nemáte oprávnění.'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+            'street' => 'nullable|string',
+            'city' => 'nullable|string',
+        ]);
+
+        $pub->update($validated);
+
+        return response()->json(['message' => 'Hospoda byla úspěšně upravena!'], 200);
+    }
+
     public function destroyPub(Pub $pub)
     {
         if (!Auth::user()->isAdmin()) {
