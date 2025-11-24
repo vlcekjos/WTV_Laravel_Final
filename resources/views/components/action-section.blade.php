@@ -5,8 +5,8 @@
     </x-section-title>
 
     <div class="mt-5 md:mt-0 md:col-span-2">
-        <!-- ZMĚNA: bg-white -> bg-black/75, border border-zluta -->
-        <div class="px-4 py-5 sm:p-6 bg-black/75 border border-zluta shadow sm:rounded-lg">
+        <!-- ZMĚNA: bg-black/75 (tmavé pozadí), border-zluta (žlutý rámeček) -->
+        <div class="px-4 py-5 sm:p-6 bg-black/75 border border-zluta shadow-lg sm:rounded-lg">
             {{ $content }}
         </div>
     </div>

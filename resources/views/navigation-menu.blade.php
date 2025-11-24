@@ -40,23 +40,19 @@
                             </x-slot>
 
                             <x-slot name="content">
-                                <!-- Nadpis sekce -->
+                                <!-- ZMĚNA: Nadpis sekce podle role -->
                                 <div class="block px-4 py-2 text-xs text-gray-400">
-                                    Správa účtu
+                                    {{ Auth::user()->isAdmin() ? 'Celková správa aplikace' : 'Správa účtu' }}
                                 </div>
 
-                                <!-- 
-                                    LOGIKA PŘEPÍNÁNÍ ODKAZŮ:
-                                    Pokud jsme na stránce profilu (route 'profile.show'), ukážeme odkaz na Mapu.
-                                    Jinak ukážeme odkaz na Profil.
-                                -->
                                 @if(request()->routeIs('profile.show'))
                                     <x-dropdown-link href="{{ route('mapa') }}">
                                         Zpět na mapu
                                     </x-dropdown-link>
                                 @else
+                                    <!-- ZMĚNA: Text odkazu podle role -->
                                     <x-dropdown-link href="{{ route('profile.show') }}">
-                                        Můj Profil
+                                        {{ Auth::user()->isAdmin() ? 'Můj profil a správa' : 'Můj Profil' }}
                                     </x-dropdown-link>
                                 @endif
 
@@ -68,7 +64,6 @@
 
                                 <div class="border-t border-gray-200"></div>
 
-                                <!-- Odhlášení -->
                                 <form method="POST" action="{{ route('logout') }}" x-data>
                                     @csrf
                                     <x-dropdown-link href="{{ route('logout') }}" @click.prevent="$root.submit();">
@@ -100,7 +95,7 @@
         </div>
     </div>
 
-    <!-- Responsive Navigation Menu (Mobil) -->
+    <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden bg-gray-900">
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link href="{{ route('mapa') }}" :active="request()->routeIs('mapa')" class="text-white">
@@ -122,20 +117,13 @@
                     </div>
                 </div>
                 <div class="mt-3 space-y-1">
-                    <!-- Stejná logika přepínání i pro mobil -->
                     @if(request()->routeIs('profile.show'))
                         <x-responsive-nav-link href="{{ route('mapa') }}" :active="false" class="text-gray-300 hover:text-white">
                             Zpět na mapu
                         </x-responsive-nav-link>
                     @else
                         <x-responsive-nav-link href="{{ route('profile.show') }}" :active="request()->routeIs('profile.show')" class="text-gray-300 hover:text-white">
-                            Můj Profil
-                        </x-responsive-nav-link>
-                    @endif
-
-                    @if (Laravel\Jetstream\Jetstream::hasApiFeatures())
-                        <x-responsive-nav-link href="{{ route('api-tokens.index') }}" :active="request()->routeIs('api-tokens.index')" class="text-gray-300 hover:text-white">
-                            API Tokeny
+                            {{ Auth::user()->isAdmin() ? 'Můj profil a správa' : 'Můj Profil' }}
                         </x-responsive-nav-link>
                     @endif
 

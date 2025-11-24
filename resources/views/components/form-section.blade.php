@@ -9,10 +9,13 @@
     <div class="mt-5 md:mt-0 md:col-span-2">
         <form wire:submit="{{ $submit }}">
             <!-- 
-                Hlavní část formuláře (inputy)
-                Změna: Pokud existují akce (tlačítka), odstraníme spodní border, aby to splynulo 
+                HLAVNÍ ČÁST FORMULÁŘE 
+                - bg-black (černé pozadí)
+                - border-t, border-x, border-zluta (žluté okraje nahoře a po stranách)
+                - rounded-t-lg (zaoblené horní rohy)
+                - Pokud formulář NEMA tlačítka (actions), dáme border i dolů a zaoblíme i spodek.
             -->
-            <div class="px-4 py-5 bg-black/75 border-x border-t border-zluta sm:p-6 shadow {{ isset($actions) ? 'sm:rounded-tl-md sm:rounded-tr-md border-b-0' : 'sm:rounded-md border-b' }}">
+            <div class="px-4 py-5 bg-black sm:p-6 shadow {{ isset($actions) ? 'sm:rounded-t-lg border-t border-x border-zluta' : 'sm:rounded-lg border border-zluta' }}">
                 <div class="grid grid-cols-6 gap-6">
                     {{ $form }}
                 </div>
@@ -20,11 +23,12 @@
 
             @if (isset($actions))
                 <!-- 
-                    Spodní část formuláře (tlačítka)
-                    ZMĚNA: Odstraněno 'border-t border-zluta'.
-                    Nyní má jen postranní a spodní okraj, takže vizuálně navazuje na horní část.
+                    SPODNÍ ČÁST (TLAČÍTKA)
+                    - bg-black (černé pozadí)
+                    - border border-zluta (kompletní rámeček, ale horní se překryje s vrškem)
+                    - sm:rounded-b-lg (zaoblené spodní rohy)
                 -->
-                <div class="flex items-center justify-end px-4 py-3 bg-black/75 border-x border-b border-zluta text-end sm:px-6 shadow sm:rounded-bl-md sm:rounded-br-md">
+                <div class="flex items-center justify-end px-4 py-3 bg-black text-end sm:px-6 shadow sm:rounded-b-lg border-b border-x border-zluta">
                     {{ $actions }}
                 </div>
             @endif

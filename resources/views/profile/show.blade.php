@@ -6,35 +6,66 @@
     </x-slot>
 
     <div x-data="{ 
-        // UPRAVENO: Načítání aktivní záložky z localStorage (nebo default 'settings')
         activeTab: localStorage.getItem('activeProfileTab') || 'settings',
         
-        // Data pro Editaci Recenze
+        // --- DATA PRO MOJE RECENZE (Načteno z DB do JS pro filtrování) ---
+        myReviews: {{ Js::from(auth()->user()->reviews()->with('pub')->latest()->get()) }},
+        searchMyReviews: '',
+        sortMyReviews: 'newest', // newest, oldest, highest, lowest
+
+        // Editace
         editingReview: null,
         editForm: { rating: 0, comment: '', pub_id: null },
         
-        // Data pro Detail Uživatele
+        // Admin data
         viewingUser: null,
+        searchUser: '',
+        searchPub: '',
 
-        // Data pro Hospody
+        // Hospody
         isPubModalOpen: false,
         isEditingPub: false,
         editingPubId: null,
         pubForm: { name: '', description: '', latitude: '', longitude: '', street: '', city: 'Plzeň' },
 
-        // Vyhledávání
-        searchUser: '',
-        searchPub: '',
-
         isSaving: false,
 
-        // UPRAVENO: Funkce pro přepnutí záložky a uložení do paměti
         switchTab(tab) {
             this.activeTab = tab;
             localStorage.setItem('activeProfileTab', tab);
         },
 
-        // --- METODY ---
+        // --- COMPUTED LOGIKA PRO FILTROVÁNÍ RECENZÍ ---
+        get filteredMyReviews() {
+            let result = this.myReviews;
+
+            // 1. Hledání
+            if (this.searchMyReviews) {
+                const lower = this.searchMyReviews.toLowerCase();
+                result = result.filter(r => r.pub && r.pub.name.toLowerCase().includes(lower));
+            }
+
+            // 2. Řazení
+            if (this.sortMyReviews === 'newest') {
+                result = result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            } else if (this.sortMyReviews === 'oldest') {
+                result = result.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            } else if (this.sortMyReviews === 'highest') {
+                result = result.sort((a, b) => b.rating - a.rating);
+            } else if (this.sortMyReviews === 'lowest') {
+                result = result.sort((a, b) => a.rating - b.rating);
+            }
+
+            return result;
+        },
+
+        // Format data helper
+        formatDate(isoString) {
+            const d = new Date(isoString);
+            return d.toLocaleDateString('cs-CZ') + ' ' + d.toLocaleTimeString('cs-CZ', {hour: '2-digit', minute:'2-digit'});
+        },
+
+        // --- METODY PRO RECENZE ---
         openEditModal(review) {
             this.editingReview = review;
             this.editForm.rating = review.rating;
@@ -58,6 +89,7 @@
             finally { this.isSaving = false; }
         },
 
+        // --- OSTATNÍ METODY ---
         openUserDetail(user) { this.viewingUser = user; },
         closeUserDetail() { this.viewingUser = null; },
 
@@ -92,7 +124,7 @@
         }
     }">
         
-        <!-- ZÁLOŽKY (Používají switchTab) -->
+        <!-- ZÁLOŽKY -->
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="border-b border-gray-700 flex space-x-8 overflow-x-auto">
                 <button @click="switchTab('settings')" :class="activeTab === 'settings' ? 'border-zluta text-zluta' : 'border-transparent text-gray-400 hover:text-gray-200'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition">Nastavení účtu</button>
@@ -116,33 +148,76 @@
             @if (Laravel\Jetstream\Jetstream::hasAccountDeletionFeatures()) <x-section-border /> <div class="mt-10 sm:mt-0">@livewire('profile.delete-user-form')</div> @endif
         </div>
 
-        <!-- 2. MOJE RECENZE -->
+        <!-- 2. MOJE RECENZE (KOMPAKTNÍ & FILTROVATELNÉ) -->
         <div x-show="activeTab === 'reviews'" style="display: none;" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <x-section-title>
                 <x-slot name="title">Moje recenze</x-slot>
-                <x-slot name="description">Historie vámi napsaných recenzí.</x-slot>
+                <x-slot name="description">Historie vašich recenzí.</x-slot>
             </x-section-title>
-            <div class="mt-6 space-y-6">
-                @forelse(auth()->user()->reviews()->with('pub')->latest()->get() as $review)
-                    <div class="bg-black/75 border border-zluta shadow sm:rounded-lg p-6 transition hover:bg-gray-900 hover:border-yellow-400 hover:shadow-lg group">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h4 class="text-2xl font-bold text-white group-hover:text-zluta transition">{{ $review->pub ? $review->pub->name : 'Neznámá hospoda' }}</h4>
-                                <p class="text-sm text-gray-400 mt-1">{{ $review->created_at->format('d.m.Y H:i') }}</p>
+
+            <!-- FILTRY -->
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <input type="text" x-model="searchMyReviews" placeholder="Hledat podle názvu hospody..." class="w-full bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm">
+                <select x-model="sortMyReviews" class="bg-gray-900 border border-gray-700 text-white rounded p-2 text-sm">
+                    <option value="newest">Nejnovější</option>
+                    <option value="oldest">Nejstarší</option>
+                    <option value="highest">Nejlepší hodnocení</option>
+                    <option value="lowest">Nejhorší hodnocení</option>
+                </select>
+            </div>
+
+            <div class="mt-6 space-y-3">
+                <template x-for="review in filteredMyReviews" :key="review.id">
+                    <!-- Kompaktní karta -->
+                    <div class="bg-gray-900 border border-gray-700 p-4 rounded flex justify-between items-start transition hover:bg-gray-800 hover:border-gray-500 group">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-1">
+                                <h4 class="text-lg font-bold text-zluta" x-text="review.pub ? review.pub.name : 'Neznámá'"></h4>
+                                <div class="text-xs text-gray-500" x-text="formatDate(review.created_at)"></div>
                             </div>
-                            <div class="flex flex-col items-end space-y-2">
-                                <div class="text-zluta text-2xl tracking-wider">{{ str_repeat('★', $review->rating) }}<span class="text-gray-600">{{ str_repeat('★', 5 - $review->rating) }}</span></div>
-                                <div class="flex items-center gap-3">
-                                    <button @click="openEditModal({{ $review }})" class="text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded transition" title="Upravit recenzi"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg></button>
-                                    <form method="POST" action="{{ route('reviews.destroy', $review) }}" onsubmit="return confirm('Opravdu smazat?');"> @csrf @method('DELETE') <button class="text-gray-400 hover:text-red-500 bg-gray-800 hover:bg-gray-700 p-2 rounded transition"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button> </form>
-                                </div>
+                            <!-- Komentář (menší text) -->
+                            <div class="text-sm text-gray-300 italic leading-snug" x-text="'\u0022' + review.comment + '\u0022'"></div>
+                        </div>
+                        
+                        <div class="flex flex-col items-end gap-2 ml-4">
+                            <!-- Hvězdy -->
+                            <div class="flex text-zluta text-sm">
+                                <template x-for="i in 5">
+                                    <span x-text="i <= review.rating ? '★' : '☆'"></span>
+                                </template>
+                            </div>
+                            
+                            <!-- Akce -->
+                            <div class="flex items-center gap-2">
+                                <button @click="openEditModal(review)" class="text-gray-400 hover:text-white bg-gray-800 border border-gray-600 hover:bg-gray-700 p-1 rounded transition" title="Upravit">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                                </button>
+                                <!-- Pro delete musíme použít form s akcí, ale v JS loopu je to složitější.
+                                     Uděláme to jednodušeji: odkážeme na route přes JS nebo vytvoříme skrytý form. 
+                                     Pro jednoduchost a funkčnost v Alpine loopu použijeme window.location pro GET delete (což není best practice, ale funguje, pokud bychom měli GET route), 
+                                     NEBO lépe: vytvoříme dynamický form -->
+                                <button @click="if(confirm('Smazat?')) { 
+                                    const form = document.createElement('form');
+                                    form.method = 'POST';
+                                    form.action = '/reviews/' + review.id;
+                                    const csrf = document.createElement('input');
+                                    csrf.type = 'hidden'; csrf.name = '_token'; csrf.value = '{{ csrf_token() }}';
+                                    const method = document.createElement('input');
+                                    method.type = 'hidden'; method.name = '_method'; method.value = 'DELETE';
+                                    form.appendChild(csrf); form.appendChild(method);
+                                    document.body.appendChild(form);
+                                    form.submit();
+                                }" class="text-red-500 hover:text-red-400 bg-gray-800 border border-gray-600 hover:bg-gray-700 p-1 rounded transition" title="Smazat">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                </button>
                             </div>
                         </div>
-                        <div class="mt-4 text-gray-300 bg-gray-900/50 p-4 rounded border border-gray-700 italic text-lg">"{{ $review->comment }}"</div>
                     </div>
-                @empty
-                    <div class="text-gray-400 text-center">Žádné recenze.</div>
-                @endforelse
+                </template>
+                
+                <template x-if="filteredMyReviews.length === 0">
+                    <div class="text-gray-400 text-center py-4">Žádné recenze neodpovídají filtru.</div>
+                </template>
             </div>
         </div>
 
@@ -171,11 +246,11 @@
             </div>
         </div>
 
-        <!-- 4. ADMIN: SPRÁVA UŽIVATELŮ (S NOVÝM DESIGNEM TLAČÍTEK A ZMĚNOU ROLE) -->
+        <!-- 4. ADMIN: SPRÁVA UŽIVATELŮ -->
         <div x-show="activeTab === 'admin_users'" style="display: none;" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <x-section-title><x-slot name="title">Uživatelé</x-slot><x-slot name="description">Seznam uživatelů.</x-slot></x-section-title>
             <div class="mt-4 mb-4">
-                <input type="text" x-model="searchUser" placeholder="Hledat uživatele (jméno nebo email)..." class="w-full bg-gray-900 border border-gray-700 text-white rounded p-2">
+                <input type="text" x-model="searchUser" placeholder="Hledat uživatele..." class="w-full bg-gray-900 border border-gray-700 text-white rounded p-2">
             </div>
             <div class="mt-6 overflow-x-auto">
                 <table class="w-full text-left text-sm text-gray-400">
@@ -189,30 +264,11 @@
                                 <td class="px-4 py-3">@if($user->isAdmin()) <span class="text-red-500 font-bold">Admin</span> @else User @endif</td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end gap-2">
-                                        <!-- INFO -->
-                                        <button @click="openUserDetail({{ $user }})" class="bg-gray-700 text-blue-400 hover:bg-blue-600 hover:text-white p-2 rounded transition" title="Detail">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                        </button>
-                                        
+                                        <button @click="openUserDetail({{ $user }})" class="bg-gray-700 text-blue-400 hover:bg-blue-600 hover:text-white p-2 rounded transition" title="Detail"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
                                         @if($user->id !== auth()->id())
-                                            <!-- ROLE -->
-                                            <form method="POST" action="{{ route('admin.users.toggle-role', $user) }}" onsubmit="return confirm('Změnit roli uživatele {{ $user->name }}?');">
-                                                @csrf @method('PUT')
-                                                <button class="bg-gray-700 text-yellow-500 hover:bg-yellow-500 hover:text-black p-2 rounded transition" title="Změnit roli (Admin/User)">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" /></svg>
-                                                </button>
-                                            </form>
-
-                                            <!-- DELETE -->
-                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Smazat uživatele {{ $user->name }}?');">
-                                                @csrf @method('DELETE')
-                                                <button class="bg-gray-700 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition" title="Smazat">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-                                                </button>
-                                            </form>
-                                        @else
-                                            <span class="text-gray-500 italic px-2">Ty</span>
-                                        @endif
+                                            <form method="POST" action="{{ route('admin.users.toggle-role', $user) }}" onsubmit="return confirm('Změnit roli?');"> @csrf @method('PUT') <button class="bg-gray-700 text-yellow-500 hover:bg-yellow-500 hover:text-black p-2 rounded transition"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" /></svg></button> </form>
+                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Smazat?');"> @csrf @method('DELETE') <button class="bg-gray-700 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button> </form>
+                                        @else <span class="text-gray-500 italic px-2">Ty</span> @endif
                                     </div>
                                 </td>
                             </tr>
@@ -222,7 +278,7 @@
             </div>
         </div>
 
-        <!-- 5. ADMIN: SPRÁVA PODNIKŮ (S VYHLEDÁVÁNÍM A EDITACÍ) -->
+        <!-- 5. ADMIN: SPRÁVA PODNIKŮ -->
         <div x-show="activeTab === 'admin_pubs'" style="display: none;" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center">
                 <x-section-title><x-slot name="title">Hospody</x-slot><x-slot name="description">Seznam podniků.</x-slot></x-section-title>
@@ -242,10 +298,7 @@
                         </div>
                         <div class="flex items-center space-x-3">
                             <button @click="openEditPubModal({{ $pub }})" class="text-blue-400 hover:text-white border border-blue-400 hover:bg-blue-600 px-3 py-1 rounded transition">UPRAVIT</button>
-                            <form method="POST" action="{{ route('admin.pubs.destroy', $pub) }}" onsubmit="return confirm('Smazat hospodu {{ $pub->name }}?');">
-                                @csrf @method('DELETE')
-                                <button class="text-red-500 hover:text-white border border-red-500 hover:bg-red-600 px-3 py-1 rounded transition">SMAZAT</button>
-                            </form>
+                            <form method="POST" action="{{ route('admin.pubs.destroy', $pub) }}" onsubmit="return confirm('Smazat hospodu {{ $pub->name }}?');"> @csrf @method('DELETE') <button class="text-red-500 hover:text-white border border-red-500 hover:bg-red-600 px-3 py-1 rounded transition">SMAZAT</button> </form>
                         </div>
                     </div>
                 @endforeach
