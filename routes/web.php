@@ -47,3 +47,6 @@ Route::middleware([
 ])->group(function () {
     // ...
 });
+
+// Routa pro JSON data do mapy
+Route::get('/api/pubs', [MapController::class, 'apiData'])->name('api.pubs');
