@@ -187,13 +187,35 @@
                          <template x-for="review in selectedPub?.reviews" :key="review.id">
                             <div class="bg-gray-800 p-4 rounded border border-gray-700">
                                 <div class="flex justify-between text-sm text-gray-400 mb-2">
-                                    <span class="font-bold text-white" x-text="review.user ? review.user.name : 'Neznámý'"></span>
-                                    <div class="text-zluta flex">
-                                        <span x-text="review.rating"></span>
-                                        <span class="ml-1 text-xs">★</span>
+                                    <div>
+                                        <span class="font-bold text-white" x-text="review.user ? review.user.name : 'Neznámý uživatel'"></span>
+                                        <template x-if="review.user_id === currentUserId">
+                                            <span class="ml-2 text-xs bg-zluta text-black px-1 rounded">Já</span>
+                                        </template>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="flex text-zluta text-xs">
+                                            <template x-for="i in 5">
+                                                <span x-text="i <= review.rating ? '★' : '☆'"></span>
+                                            </template>
+                                        </div>
+                                        <span class="text-xs text-gray-500" x-text="formatDate(review.created_at)"></span>
                                     </div>
                                 </div>
-                                <p class="text-gray-300 text-sm" x-text="review.comment"></p>
+                                <!-- Komponenta pro zkracování textu -->
+                                <div x-data="{ expanded: false, maxLength: 100 }">
+                                    <p class="text-gray-300 text-sm">
+                                    <span x-text="expanded ? review.comment : (review.comment.length > maxLength ? review.comment.substring(0, maxLength) + '...' : review.comment)"></span>
+        
+                                    <!-- Tlačítko Zobrazit více / méně -->
+                                    <template x-if="review.comment.length > maxLength">
+                                        <button @click="expanded = !expanded" 
+                                            class="text-zluta text-xs ml-1 hover:underline focus:outline-none">
+                                            <span x-text="expanded ? 'Zobrazit méně' : 'Zobrazit více'"></span>
+                                        </button>
+                                    </template>
+                                    </p>
+                                </div>
                             </div>
                          </template>
                     </div>
