@@ -206,7 +206,20 @@
                                         <span class="text-xs text-gray-500" x-text="formatDate(review.created_at)"></span>
                                     </div>
                                 </div>
-                                <p class="text-gray-300 text-sm" x-text="review.comment"></p>
+                                <!-- Komponenta pro zkracování textu -->
+                                <div x-data="{ expanded: false, maxLength: 100 }">
+                                    <p class="text-gray-300 text-sm">
+                                    <span x-text="expanded ? review.comment : (review.comment.length > maxLength ? review.comment.substring(0, maxLength) + '...' : review.comment)"></span>
+        
+                                    <!-- Tlačítko Zobrazit více / méně -->
+                                    <template x-if="review.comment.length > maxLength">
+                                        <button @click="expanded = !expanded" 
+                                            class="text-zluta text-xs ml-1 hover:underline focus:outline-none">
+                                            <span x-text="expanded ? 'Zobrazit méně' : 'Zobrazit více'"></span>
+                                        </button>
+                                    </template>
+                                    </p>
+                                </div>
                             </div>
                         </template>
                     </div>
