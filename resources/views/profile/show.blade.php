@@ -1,64 +1,71 @@
 <x-app-layout>
-    @section('styles')
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-zluta leading-tight">
+            {{ __('Můj Profil') }}
+        </h2>
+    </x-slot>
+
+    <div x-data="{ 
+        activeTab: localStorage.getItem('activeProfileTab') || 'settings',
         
-        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+        // --- DATA PRO MOJE RECENZE (Načteno z DB do JS pro filtrování) ---
+        myReviews: {{ Js::from(auth()->user()->reviews()->with('pub')->latest()->get()) }},
+        searchMyReviews: '',
+        sortMyReviews: 'newest', // newest, oldest, highest, lowest
 
-        <style>
-            /* Tmavý styl mapy */
-            .leaflet-layer,
-            .leaflet-control-zoom-in,
-            .leaflet-control-zoom-out,
-            .leaflet-control-attribution {
-                filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
-            }
-            
-            /* Ikony a stíny */
-            img.leaflet-marker-icon {
-                filter: invert(0%) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
-                transition: filter 0.3s ease;
-            }
-            img.leaflet-marker-icon:hover {
-                 filter: invert(0%) drop-shadow(0 6px 12px rgba(234, 179, 8, 0.7));
+        // Editace
+        editingReview: null,
+        editForm: { rating: 0, comment: '', pub_id: null },
+        
+        // Admin data
+        viewingUser: null,
+        searchUser: '',
+        searchPub: '',
+
+        // Hospody
+        isPubModalOpen: false,
+        isEditingPub: false,
+        editingPubId: null,
+        pubForm: { name: '', description: '', latitude: '', longitude: '', street: '', city: 'Plzeň' },
+
+        isSaving: false,
+
+        switchTab(tab) {
+            this.activeTab = tab;
+            localStorage.setItem('activeProfileTab', tab);
+        },
+
+        // --- COMPUTED LOGIKA PRO FILTROVÁNÍ RECENZÍ ---
+        get filteredMyReviews() {
+            let result = this.myReviews;
+
+            // 1. Hledání
+            if (this.searchMyReviews) {
+                const lower = this.searchMyReviews.toLowerCase();
+                result = result.filter(r => r.pub && r.pub.name.toLowerCase().includes(lower));
             }
 
-            .star-hover:hover { transform: scale(1.2); }
+            // 2. Řazení
+            if (this.sortMyReviews === 'newest') {
+                result = result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            } else if (this.sortMyReviews === 'oldest') {
+                result = result.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            } else if (this.sortMyReviews === 'highest') {
+                result = result.sort((a, b) => b.rating - a.rating);
+            } else if (this.sortMyReviews === 'lowest') {
+                result = result.sort((a, b) => a.rating - b.rating);
+            }
 
-            /* Tooltipy */
-            .custom-tooltip {
-                background-color: rgba(0, 0, 0, 0.9) !important;
-                border: 1px solid #EAB308 !important;
-                color: #fff !important;
-                border-radius: 0.5rem;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-                font-family: 'Figtree', sans-serif;
-                padding: 0;
-            }
-            .leaflet-tooltip-top:before { border-top-color: #EAB308 !important; }
-            .leaflet-tooltip-bottom:before { border-bottom-color: #EAB308 !important; }
-
-            /* NOVÉ: Styl pro Clustery (shluky) v tmavém režimu */
-            .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
-                background-color: rgba(234, 179, 8, 0.6) !important; /* Žlutá průhledná */
-            }
-            .marker-cluster div {
-                background-color: rgba(0, 0, 0, 0.8) !important; /* Černý střed */
-                color: #EAB308 !important; /* Žluté číslo */
-                font-weight: bold;
-            }
-            if (this.sortMyReviews === 'newest') result = result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            else if (this.sortMyReviews === 'oldest') result = result.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-            else if (this.sortMyReviews === 'highest') result = result.sort((a, b) => b.rating - a.rating);
-            else if (this.sortMyReviews === 'lowest') result = result.sort((a, b) => a.rating - b.rating);
             return result;
         },
 
+        // Format data helper
         formatDate(isoString) {
             const d = new Date(isoString);
             return d.toLocaleDateString('cs-CZ') + ' ' + d.toLocaleTimeString('cs-CZ', {hour: '2-digit', minute:'2-digit'});
         },
 
+        // --- METODY PRO RECENZE ---
         openEditModal(review) {
             this.editingReview = review;
             this.editForm.rating = review.rating;
@@ -82,6 +89,7 @@
             finally { this.isSaving = false; }
         },
 
+        // --- OSTATNÍ METODY ---
         openUserDetail(user) { this.viewingUser = user; },
         closeUserDetail() { this.viewingUser = null; },
 
@@ -130,7 +138,6 @@
             </div>
         </div>
 
-        <!-- 1. NASTAVENÍ ÚČTU -->
         <div x-show="activeTab === 'settings'" style="display: none;" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             @if (Laravel\Fortify\Features::canUpdateProfileInformation()) @livewire('profile.update-profile-information-form') <x-section-border /> @endif
             @if (Laravel\Fortify\Features::enabled(Laravel\Fortify\Features::updatePasswords())) <div class="mt-10 sm:mt-0">@livewire('profile.update-password-form')</div> <x-section-border /> @endif
@@ -139,7 +146,6 @@
             @if (Laravel\Jetstream\Jetstream::hasAccountDeletionFeatures()) <x-section-border /> <div class="mt-10 sm:mt-0">@livewire('profile.delete-user-form')</div> @endif
         </div>
 
-        <!-- 2. MOJE RECENZE (S ZKRACUJÍCÍM SE TEXTEM) -->
         <div x-show="activeTab === 'reviews'" style="display: none;" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <x-section-title>
                 <x-slot name="title">Moje recenze</x-slot>
@@ -164,15 +170,7 @@
                                 <h4 class="text-lg font-bold text-zluta" x-text="review.pub ? review.pub.name : 'Neznámá'"></h4>
                                 <div class="text-xs text-gray-500" x-text="formatDate(review.created_at)"></div>
                             </div>
-                            <!-- ZMĚNA: Zkrácený text -->
-                            <div x-data="{ expanded: false, maxLength: 120 }" class="text-sm text-gray-300 italic leading-snug">
-                                <span x-text="expanded ? '\u0022' + review.comment + '\u0022' : (review.comment.length > maxLength ? '\u0022' + review.comment.substring(0, maxLength) + '...' + '\u0022' : '\u0022' + review.comment + '\u0022')"></span>
-                                <template x-if="review.comment.length > maxLength">
-                                    <button @click="expanded = !expanded" class="text-zluta text-xs ml-1 hover:underline focus:outline-none">
-                                        <span x-text="expanded ? '(Méně)' : '(Více)'"></span>
-                                    </button>
-                                </template>
-                            </div>
+                            <div class="text-sm text-gray-300 italic leading-snug" x-text="'\u0022' + review.comment + '\u0022'"></div>
                         </div>
                         
                         <div class="flex flex-col items-end gap-2 ml-4">
@@ -181,6 +179,7 @@
                                     <span x-text="i <= review.rating ? '★' : '☆'"></span>
                                 </template>
                             </div>
+                            
                             <div class="flex items-center gap-2">
                                 <button @click="openEditModal(review)" class="text-gray-400 hover:text-white bg-gray-800 border border-gray-600 hover:bg-gray-700 p-1 rounded transition" title="Upravit">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
@@ -210,7 +209,6 @@
             </div>
         </div>
 
-        <!-- 3. ADMIN: SPRÁVA RECENZÍ -->
         @if(auth()->user()->isAdmin())
         <div x-show="activeTab === 'admin_reviews'" style="display: none;" x-data="{ filterRating: '', filterPub: '', filterUser: '' }" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <x-section-title><x-slot name="title">Všechny recenze</x-slot><x-slot name="description">Administrátorský přehled recenzí.</x-slot></x-section-title>
@@ -235,7 +233,6 @@
             </div>
         </div>
 
-        <!-- 4. ADMIN: SPRÁVA UŽIVATELŮ -->
         <div x-show="activeTab === 'admin_users'" style="display: none;" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <x-section-title><x-slot name="title">Uživatelé</x-slot><x-slot name="description">Seznam uživatelů.</x-slot></x-section-title>
             <div class="mt-4 mb-4">
@@ -253,38 +250,34 @@
                                 <td class="px-4 py-3">@if($user->isAdmin()) <span class="text-red-500 font-bold">Admin</span> @else User @endif</td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end gap-2">
+                                        <button @click="openUserDetail({{ $user }})" class="bg-gray-700 text-blue-400 hover:bg-blue-600 hover:text-white p-2 rounded transition" title="Detail"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
+                                        
                                         @if($user->id !== auth()->id())
                                             <form method="POST" action="{{ route('admin.users.toggle-role', $user) }}" onsubmit="return confirm('Opravdu změnit oprávnění tohoto uživatele?');"> 
                                                 @csrf @method('PUT') 
-                                                
                                                 @if($user->isAdmin())
                                                     <button class="bg-gray-700 text-orange-500 hover:bg-orange-500 hover:text-white p-2 rounded transition" title="Odebrat Admin práva">
                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 4.5-15 15" class="text-red-500 font-bold" />
+                                                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+                                                          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" opacity="0.5"/> 
+                                                          <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 4.5-15 15" class="text-red-500 font-bold" />
                                                         </svg>
                                                     </button>
                                                 @else
                                                     <button class="bg-gray-700 text-green-500 hover:bg-green-600 hover:text-white p-2 rounded transition" title="Udělit Admin práva">
                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+                                                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
                                                         </svg>
                                                     </button>
                                                 @endif
                                             </form>
-                                            
-                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Smazat?');"> 
-                                                @csrf @method('DELETE') 
-                                                <button class="bg-gray-700 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition" title="Smazat uživatele">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-                                                </button> 
-                                            </form>
                                         @else 
-                                            <span class="text-gray-500 italic px-2">Ty</span> 
+                                            <span class="text-gray-500 italic px-2 text-xs">Ty</span> 
                                         @endif
-                                        <button @click="openUserDetail({{ $user }})" class="bg-gray-700 text-blue-400 hover:bg-blue-600 hover:text-white p-2 rounded transition" title="Detail">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                        </button>
+
+                                        @if($user->id !== auth()->id())
+                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Smazat?');"> @csrf @method('DELETE') <button class="bg-gray-700 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition" title="Smazat uživatele"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg></button> </form>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -294,7 +287,6 @@
             </div>
         </div>
 
-        <!-- 5. ADMIN: SPRÁVA PODNIKŮ -->
         <div x-show="activeTab === 'admin_pubs'" style="display: none;" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center">
                 <x-section-title><x-slot name="title">Hospody</x-slot><x-slot name="description">Seznam podniků.</x-slot></x-section-title>
@@ -322,7 +314,6 @@
         </div>
         @endif
 
-        <!-- MODÁL: ÚPRAVA RECENZE -->
         <div x-show="editingReview" class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0" style="display: none;">
             <div class="fixed inset-0 transform transition-all" x-show="editingReview" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"><div class="absolute inset-0 bg-gray-900 opacity-75"></div></div>
             <div class="mb-6 bg-black border border-zluta rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full sm:max-w-lg sm:mx-auto" x-show="editingReview">
@@ -331,7 +322,6 @@
             </div>
         </div>
 
-        <!-- MODÁL: DETAIL UŽIVATELE -->
         <div x-show="viewingUser" class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0" style="display: none;">
             <div class="fixed inset-0 transform transition-all" x-show="viewingUser" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"><div class="absolute inset-0 bg-gray-900 opacity-75"></div></div>
             <div class="mb-6 bg-black border border-zluta rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full sm:max-w-md sm:mx-auto" x-show="viewingUser">
@@ -340,7 +330,6 @@
             </div>
         </div>
 
-        <!-- MODÁL: PŘIDAT / UPRAVIT PODNIK -->
         <div x-show="isPubModalOpen" class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0" style="display: none;">
             <div class="fixed inset-0 transform transition-all" x-show="isPubModalOpen" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"><div class="absolute inset-0 bg-gray-900 opacity-75"></div></div>
             <div class="mb-6 bg-black border border-zluta rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full sm:max-w-lg sm:mx-auto" x-show="isPubModalOpen">
@@ -365,96 +354,6 @@
                 </div>
             </div>
         </div>
+
     </div>
-
-    @section('scripts')
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-        <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-        
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                // 1. Inicializace mapy (Plzeň)
-                var map = L.map('map').setView([49.7475, 13.3776], 14);
-                
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-                    maxZoom: 19, 
-                    attribution: '&copy; OpenStreetMap' 
-                }).addTo(map);
-
-                // 2. Definice ikony
-                var beerIcon = L.icon({
-                    iconUrl: '{{ asset("images/logo.png") }}', 
-                    iconSize:     [32, 32], 
-                    iconAnchor:   [16, 32], 
-                    tooltipAnchor:[0, -32]  
-                });
-
-                // 3. Marker Cluster Group (Optimalizace výkonu)
-                var markers = L.markerClusterGroup({
-                    showCoverageOnHover: false, // Nevykreslovat modrý obrys shluku
-                    maxClusterRadius: 50 // Menší rádius = více rozdrobené clustery
-                });
-
-                // 4. Funkce pro stažení dat (AJAX)
-                fetch('{{ route("api.pubs") }}') // Voláme novou API routu
-                    .then(response => response.json())
-                    .then(data => {
-                        data.forEach(pub => {
-                            if (pub.latitude && pub.longitude) {
-                                
-                                // Vytvoření markeru
-                                var marker = L.marker([pub.latitude, pub.longitude], { icon: beerIcon });
-                                
-                                // Výpočet hvězdiček (nyní z dat z API)
-                                let avgRating = 0;
-                                if (pub.reviews && pub.reviews.length > 0) {
-                                    let sum = pub.reviews.reduce((a, b) => a + b.rating, 0);
-                                    avgRating = Math.round(sum / pub.reviews.length);
-                                }
-                                let stars = '★'.repeat(avgRating) + '☆'.repeat(5 - avgRating);
-                                
-                                // Bind Tooltip
-                                marker.bindTooltip(`
-                                    <div class="p-2 text-center">
-                                        <div class="font-bold text-white text-sm mb-1">${pub.name}</div>
-                                        <div class="text-zluta text-xs tracking-widest">${stars}</div>
-                                    </div>
-                                `, {
-                                    permanent: false,
-                                    direction: 'top',
-                                    className: 'custom-tooltip',
-                                    offset: [0, -5]
-                                });
-
-                                // Click event - pošle data do Alpine.js
-                                marker.on('click', function() {
-                                    window.dispatchEvent(new CustomEvent('pub-selected', { detail: pub }));
-                                    // Jemný posun mapy
-                                    map.setView([pub.latitude, pub.longitude], 16);
-                                });
-
-                                // PŘIDÁNÍ DO CLUSTERU (místo přímo do mapy)
-                                markers.addLayer(marker);
-                            }
-                        });
-
-                        // Přidání celé skupiny clusterů do mapy
-                        map.addLayer(markers);
-                        
-                        // Schování loading indikátoru
-                        document.getElementById('map-loading').style.display = 'none';
-                    })
-                    .catch(error => {
-                        console.error('Chyba při načítání mapy:', error);
-                        document.getElementById('map-loading').innerHTML = '<span class="text-red-500">Chyba načítání dat.</span>';
-                    });
-
-                // Fix velikosti mapy
-                window.resizeMap = function() { 
-                    setTimeout(() => { map.invalidateSize(); }, 600); 
-                };
-                setTimeout(() => { map.invalidateSize(); }, 200);
-            });
-        </script>
-    @endsection
 </x-app-layout>
