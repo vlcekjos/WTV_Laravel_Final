@@ -1,6 +1,11 @@
 <x-app-layout>
     @section('styles')
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+        
+        <!-- NOVÉ: CSS pro MarkerCluster (Shlukování bodů) -->
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+
         <style>
             /* Tmavý styl mapy */
             .leaflet-layer,
@@ -10,26 +15,18 @@
                 filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
             }
             
-            /* ZMĚNA ZDE: Fix pro mapové dlaždice A PŘIDÁNÍ STÍNU LOGU */
+            /* Ikony a stíny */
             img.leaflet-marker-icon {
-                /*
-                  invert(0%) - zajistí, že se logo nepřebarví do negativu kvůli tmavému režimu
-                  drop-shadow() - přidá stín kopírující tvar půllitru.
-                  Hodnoty: posun X, posun Y, rozostření, barva (černá s 60% průhledností)
-                */
                 filter: invert(0%) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
-                transition: filter 0.3s ease; /* Jemný přechod při změně */
+                transition: filter 0.3s ease;
             }
-            
-            /* Volitelné: Zvýraznění markeru při najetí myší */
             img.leaflet-marker-icon:hover {
-                 filter: invert(0%) drop-shadow(0 6px 12px rgba(234, 179, 8, 0.7)); /* Žlutý stín při hoveru */
+                 filter: invert(0%) drop-shadow(0 6px 12px rgba(234, 179, 8, 0.7));
             }
 
-            /* Animace hvězdiček ve formuláři */
             .star-hover:hover { transform: scale(1.2); }
 
-            /* Styl pro Tooltip (Bublina nad hospodou) */
+            /* Tooltipy */
             .custom-tooltip {
                 background-color: rgba(0, 0, 0, 0.9) !important;
                 border: 1px solid #EAB308 !important;
@@ -41,6 +38,16 @@
             }
             .leaflet-tooltip-top:before { border-top-color: #EAB308 !important; }
             .leaflet-tooltip-bottom:before { border-bottom-color: #EAB308 !important; }
+
+            /* NOVÉ: Styl pro Clustery (shluky) v tmavém režimu */
+            .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+                background-color: rgba(234, 179, 8, 0.6) !important; /* Žlutá průhledná */
+            }
+            .marker-cluster div {
+                background-color: rgba(0, 0, 0, 0.8) !important; /* Černý střed */
+                color: #EAB308 !important; /* Žluté číslo */
+                font-weight: bold;
+            }
         </style>
     @endsection
 
@@ -149,7 +156,7 @@
                  style="display: none;">
                 
                 <!-- 1. DETAIL HOSPODY -->
-                <div x-show="!isWritingReview" x-transition:enter="transition ease-in duration-200 delay-100">
+                <div x-show="!isWritingReview">
                     <div class="flex justify-between items-start mb-6">
                         <h2 class="text-3xl font-bold text-zluta" x-text="selectedPub?.name"></h2>
                         <button @click="selectedPub = null; resizeMap()" class="text-gray-400 hover:text-white">
@@ -170,155 +177,161 @@
                         <span x-text="myReview ? 'UPRAVIT MOU RECENZI' : 'PŘIDAT RECENZI'"></span>
                     </button>
                     
-                    <template x-if="myReview">
-                        <p class="text-center text-sm text-gray-400 mb-8 italic">
-                            Tuto hospodu jste již hodnotili (<span x-text="myReview.rating"></span>/5).
-                        </p>
-                    </template>
-                    <template x-if="!myReview">
-                        <div class="mb-8"></div>
-                    </template>
-
-                    <div class="space-y-6">
-                        <h3 class="text-xl text-white font-semibold border-b border-gray-700 pb-2">
-                            Recenze uživatelů (<span x-text="selectedPub?.reviews ? selectedPub.reviews.length : 0"></span>)
-                        </h3>
-                        
+                    <h3 class="text-xl text-white font-semibold border-b border-gray-700 pb-2 mt-6">
+                        Recenze uživatelů (<span x-text="selectedPub?.reviews ? selectedPub.reviews.length : 0"></span>)
+                    </h3>
+                    <div class="space-y-4 mt-4">
                         <template x-if="!selectedPub?.reviews || selectedPub.reviews.length === 0">
                             <p class="text-gray-500 italic">Zatím žádné recenze. Buďte první!</p>
                         </template>
-
-                        <template x-for="review in selectedPub?.reviews" :key="review.id">
+                         <template x-for="review in selectedPub?.reviews" :key="review.id">
                             <div class="bg-gray-800 p-4 rounded border border-gray-700">
                                 <div class="flex justify-between text-sm text-gray-400 mb-2">
-                                    <div>
-                                        <span class="font-bold text-white" x-text="review.user ? review.user.name : 'Neznámý uživatel'"></span>
-                                        <template x-if="review.user_id === currentUserId">
-                                            <span class="ml-2 text-xs bg-zluta text-black px-1 rounded">Já</span>
-                                        </template>
-                                    </div>
-                                    <div class="flex items-center space-x-2">
-                                        <div class="flex text-zluta text-xs">
-                                            <template x-for="i in 5">
-                                                <span x-text="i <= review.rating ? '★' : '☆'"></span>
-                                            </template>
-                                        </div>
-                                        <span class="text-xs text-gray-500" x-text="formatDate(review.created_at)"></span>
+                                    <span class="font-bold text-white" x-text="review.user ? review.user.name : 'Neznámý'"></span>
+                                    <div class="text-zluta flex">
+                                        <span x-text="review.rating"></span>
+                                        <span class="ml-1 text-xs">★</span>
                                     </div>
                                 </div>
-                                <!-- Komponenta pro zkracování textu -->
-                                <div x-data="{ expanded: false, maxLength: 100 }">
-                                    <p class="text-gray-300 text-sm">
-                                    <span x-text="expanded ? review.comment : (review.comment.length > maxLength ? review.comment.substring(0, maxLength) + '...' : review.comment)"></span>
-        
-                                    <!-- Tlačítko Zobrazit více / méně -->
-                                    <template x-if="review.comment.length > maxLength">
-                                        <button @click="expanded = !expanded" 
-                                            class="text-zluta text-xs ml-1 hover:underline focus:outline-none">
-                                            <span x-text="expanded ? 'Zobrazit méně' : 'Zobrazit více'"></span>
-                                        </button>
-                                    </template>
-                                    </p>
-                                </div>
+                                <p class="text-gray-300 text-sm" x-text="review.comment"></p>
                             </div>
-                        </template>
+                         </template>
                     </div>
                 </div>
 
-                <!-- 2. FORMULÁŘ PRO RECENZI -->
-                <div x-show="isWritingReview" x-transition:enter="transition ease-in duration-200">
-                    <div class="mb-8 text-center border-b border-gray-800 pb-4">
+                <!-- 2. FORMULÁŘ -->
+                <div x-show="isWritingReview">
+                     <div class="mb-8 text-center border-b border-gray-800 pb-4">
                         <h2 class="text-2xl font-bold text-white mb-1" x-text="myReview ? 'Úprava recenze' : 'Nová recenze'"></h2>
                         <p class="text-zluta text-sm" x-text="selectedPub?.name"></p>
                     </div>
-
-                    <div class="mb-8">
+                     
+                     <div class="mb-8">
                         <label class="block text-gray-400 text-sm mb-3">Kolik hvězd udělíš?</label>
                         <div class="flex items-center justify-center space-x-2">
                             <template x-for="i in 5">
-                                <button @click="setRating(i)" 
-                                        class="focus:outline-none transition transform star-hover"
-                                        :class="i <= reviewForm.rating ? 'text-zluta' : 'text-gray-600'">
+                                <button @click="setRating(i)" class="focus:outline-none transition transform star-hover" :class="i <= reviewForm.rating ? 'text-zluta' : 'text-gray-600'">
                                     <svg class="w-10 h-10 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                                 </button>
                             </template>
                         </div>
-                    </div>
-
-                    <div class="mb-8">
+                     </div>
+                     
+                     <div class="mb-8">
                         <label class="block text-gray-400 text-sm mb-2">Text recenze</label>
-                        <textarea x-model="reviewForm.comment" rows="6" class="w-full bg-black border border-gray-700 text-white rounded p-3 focus:border-zluta focus:ring-1 focus:ring-zluta" placeholder="Napiš nám, jak ti chutnalo..."></textarea>
-                    </div>
-
-                    <div class="flex space-x-4">
+                        <textarea x-model="reviewForm.comment" class="w-full bg-black border border-gray-700 text-white rounded p-3 focus:border-zluta focus:ring-1 focus:ring-zluta" rows="4" placeholder="Napiš nám, jak ti chutnalo..."></textarea>
+                     </div>
+                     
+                     <div class="flex space-x-4 mt-4">
                         <button @click="isWritingReview = false" class="w-1/2 py-3 bg-white text-black font-bold rounded hover:bg-gray-200 transition">Zrušit</button>
-                        <button @click="submitReview()" :disabled="isLoading" class="w-1/2 py-3 bg-zluta text-black font-bold rounded hover:bg-yellow-500 transition shadow-[0_0_15px_rgba(234,179,8,0.3)] disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span x-show="!isLoading">Uložit</span>
+                        <button @click="submitReview()" :disabled="isLoading" class="w-1/2 py-3 bg-zluta text-black font-bold rounded hover:bg-yellow-500 transition shadow-[0_0_15px_rgba(234,179,8,0.3)] disabled:opacity-50">
+                            <span x-show="!isLoading">Odeslat</span>
                             <span x-show="isLoading">Odesílám...</span>
                         </button>
-                    </div>
+                     </div>
                 </div>
             </div>
 
             <!-- MAPA -->
             <div :class="selectedPub ? 'w-full lg:w-3/5' : 'w-full'" class="w-full transition-all duration-500 ease-in-out relative bg-gray-900">
                 <div id="map" class="w-full h-full z-10"></div>
+                
+                <!-- Loading indikátor -->
+                <div id="map-loading" class="absolute inset-0 flex items-center justify-center bg-black/50 z-50">
+                    <div class="text-zluta text-xl font-bold animate-pulse">Načítám hospody...</div>
+                </div>
             </div>
         </div>
     </div>
 
     @section('scripts')
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+        <!-- NOVÉ: JS pro MarkerCluster -->
+        <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+        
         <script>
             document.addEventListener('DOMContentLoaded', function () {
+                // 1. Inicializace mapy (Plzeň)
                 var map = L.map('map').setView([49.7475, 13.3776], 14);
-                setTimeout(() => { map.invalidateSize(); }, 200);
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+                
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+                    maxZoom: 19, 
+                    attribution: '&copy; OpenStreetMap' 
+                }).addTo(map);
 
-                // --- DEFINICE IKONY ---
+                // 2. Definice ikony
                 var beerIcon = L.icon({
-                    iconUrl: '{{ asset("images/logo.png") }}', // Cesta k logu
-                    iconSize:     [32, 32], // Velikost ikony
-                    iconAnchor:   [16, 32], // Bod ikony, který ukazuje na souřadnice (střed dole)
-                    tooltipAnchor:[0, -32]  // Kde se zobrazí tooltip (nad ikonou)
+                    iconUrl: '{{ asset("images/logo.png") }}', 
+                    iconSize:     [32, 32], 
+                    iconAnchor:   [16, 32], 
+                    tooltipAnchor:[0, -32]  
                 });
 
-                const pubs = @json($pubs);
-
-                pubs.forEach(pub => {
-                    if (pub.latitude && pub.longitude) {
-                        // Použití vlastní ikony
-                        var marker = L.marker([pub.latitude, pub.longitude], { icon: beerIcon }).addTo(map);
-                        
-                        // Tooltip logika
-                        let avgRating = 0;
-                        if (pub.reviews && pub.reviews.length > 0) {
-                            let sum = pub.reviews.reduce((a, b) => a + b.rating, 0);
-                            avgRating = Math.round(sum / pub.reviews.length);
-                        }
-                        let stars = '★'.repeat(avgRating) + '☆'.repeat(5 - avgRating);
-                        
-                        marker.bindTooltip(`
-                            <div class="p-2 text-center">
-                                <div class="font-bold text-white text-sm mb-1">${pub.name}</div>
-                                <div class="text-zluta text-xs tracking-widest">${stars}</div>
-                            </div>
-                        `, {
-                            permanent: false,
-                            direction: 'top',
-                            className: 'custom-tooltip',
-                            opacity: 1,
-                            offset: [0, -5]
-                        });
-
-                        marker.on('click', function() {
-                            window.dispatchEvent(new CustomEvent('pub-selected', { detail: pub }));
-                            map.setView([pub.latitude, pub.longitude], 15);
-                        });
-                    }
+                // 3. Marker Cluster Group (Optimalizace výkonu)
+                var markers = L.markerClusterGroup({
+                    showCoverageOnHover: false, // Nevykreslovat modrý obrys shluku
+                    maxClusterRadius: 50 // Menší rádius = více rozdrobené clustery
                 });
 
-                window.resizeMap = function() { setTimeout(() => { map.invalidateSize(); }, 600); };
+                // 4. Funkce pro stažení dat (AJAX) - TOTO NAHRADILO STARÝ KÓD
+                fetch('{{ route("api.pubs") }}') // Voláme novou API routu
+                    .then(response => response.json())
+                    .then(data => {
+                        data.forEach(pub => {
+                            if (pub.latitude && pub.longitude) {
+                                
+                                // Vytvoření markeru
+                                var marker = L.marker([pub.latitude, pub.longitude], { icon: beerIcon });
+                                
+                                // Výpočet hvězdiček (nyní z dat z API)
+                                let avgRating = 0;
+                                if (pub.reviews && pub.reviews.length > 0) {
+                                    let sum = pub.reviews.reduce((a, b) => a + b.rating, 0);
+                                    avgRating = Math.round(sum / pub.reviews.length);
+                                }
+                                let stars = '★'.repeat(avgRating) + '☆'.repeat(5 - avgRating);
+                                
+                                // Bind Tooltip
+                                marker.bindTooltip(`
+                                    <div class="p-2 text-center">
+                                        <div class="font-bold text-white text-sm mb-1">${pub.name}</div>
+                                        <div class="text-zluta text-xs tracking-widest">${stars}</div>
+                                    </div>
+                                `, {
+                                    permanent: false,
+                                    direction: 'top',
+                                    className: 'custom-tooltip',
+                                    offset: [0, -5]
+                                });
+
+                                // Click event - pošle data do Alpine.js
+                                marker.on('click', function() {
+                                    window.dispatchEvent(new CustomEvent('pub-selected', { detail: pub }));
+                                    // Jemný posun mapy
+                                    map.setView([pub.latitude, pub.longitude], 16);
+                                });
+
+                                // PŘIDÁNÍ DO CLUSTERU (místo přímo do mapy)
+                                markers.addLayer(marker);
+                            }
+                        });
+
+                        // Přidání celé skupiny clusterů do mapy
+                        map.addLayer(markers);
+                        
+                        // Schování loading indikátoru
+                        document.getElementById('map-loading').style.display = 'none';
+                    })
+                    .catch(error => {
+                        console.error('Chyba při načítání mapy:', error);
+                        document.getElementById('map-loading').innerHTML = '<span class="text-red-500">Chyba načítání dat.</span>';
+                    });
+
+                // Fix velikosti mapy
+                window.resizeMap = function() { 
+                    setTimeout(() => { map.invalidateSize(); }, 600); 
+                };
+                setTimeout(() => { map.invalidateSize(); }, 200);
             });
         </script>
     @endsection
