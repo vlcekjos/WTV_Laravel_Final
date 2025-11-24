@@ -12,12 +12,14 @@ class MapController extends Controller
      */
     public function index()
     {
-        // Načteme hospody a k nim 'přibalíme' recenze (seřazené od nejnovější)
-        // a také autora recenze (user), abychom mohli zobrazit jeho jméno.
-        $pubs = Pub::with(['reviews' => function($query) {
-            $query->latest()->with('user:id,name');
-        }])->get();
+        return view('mapa'); 
+    }
 
-        return view('mapa', compact('pubs')); 
+    public function apiData()
+    {
+        // Načteme hospody včetně uživatelů v recenzích (pro zobrazení jména v levém panelu)
+        $pubs = \App\Models\Pub::with('reviews.user')->get();
+        
+        return response()->json($pubs);
     }
 }
