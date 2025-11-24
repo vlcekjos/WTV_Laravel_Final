@@ -98,4 +98,16 @@ class AdminController extends Controller
 
         return back()->banner('Hospoda byla úspěšně smazána.');
     }
+
+    public function apiReviews() {
+        return response()->json(\App\Models\Review::with(['user:id,name', 'pub:id,name'])->latest()->get());
+    }
+
+    public function apiUsers() {
+        return response()->json(\App\Models\User::all());
+    }
+
+    public function apiPubs() {
+        return response()->json(\App\Models\Pub::all());
+    }
 }

@@ -48,5 +48,11 @@ Route::middleware([
     // ...
 });
 
+Route::prefix('admin/api')->middleware(['auth', 'verified'])->group(function () {
+    Route::get('/reviews', [AdminController::class, 'apiReviews'])->name('api.admin.reviews');
+    Route::get('/users', [AdminController::class, 'apiUsers'])->name('api.admin.users');
+    Route::get('/pubs', [AdminController::class, 'apiPubs'])->name('api.admin.pubs');
+});
+
 // Routa pro JSON data do mapy
 Route::get('/api/pubs', [MapController::class, 'apiData'])->name('api.pubs');
