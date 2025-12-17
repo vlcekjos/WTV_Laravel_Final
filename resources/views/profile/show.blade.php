@@ -7,6 +7,7 @@
 
     <div x-data="{ 
         activeTab: localStorage.getItem('activeProfileTab') || 'settings',
+        currentUserId: {{ auth()->id() }},
         
         myReviews: {{ Js::from(auth()->user()->reviews()->with('pub')->latest()->get()) }},
         searchMyReviews: '',
@@ -34,11 +35,10 @@
                 
                 if (type === 'reviews') {
                     this.adminReviews = data;
-                    // KLÍČOVÁ OPRAVA: Aktualizujeme i tvoje osobní recenze z čerstvých dat
-                    // Vyfiltrujeme jen ty, kde user_id odpovídá tvému ID
+                    // Tady je lék na tvůj problém:
+                    // Pokaždé, když se dotkneš dat admina, aktualizujeme i tvůj seznam
                     this.myReviews = data.filter(r => r.user_id === this.currentUserId);
                 }
-                
                 if (type === 'users') this.adminUsers = data;
                 if (type === 'pubs') this.adminPubs = data;
             } catch (e) { console.error('Chyba načítání:', e); }
