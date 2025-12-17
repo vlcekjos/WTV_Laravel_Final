@@ -36,11 +36,20 @@ class ReviewController extends Controller
 
     public function destroy(Review $review)
     {
+        // Kontrola oprávnění (buď majitel recenze nebo admin)
         if (Auth::id() !== $review->user_id && !Auth::user()->isAdmin()) {
-            abort(403, 'Nemáte oprávnění smazat tuto recenzi.');
+            $message = 'Nemáte oprávnění smazat tuto recenzi.';
+            return request()->wantsJson() 
+                ? response()->json(['message' => $message], 403) 
+                : abort(403, $message);
         }
 
         $review->delete();
+
+        // OPRAVA PRO API: Pokud JavaScript vyžaduje JSON, pošli potvrzení
+        if (request()->wantsJson()) {
+            return response()->json(['message' => 'Recenze byla úspěšně smazána.']);
+        }
 
         return back()->banner('Recenze byla úspěšně smazána.');
     }
