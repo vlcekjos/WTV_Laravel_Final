@@ -296,7 +296,7 @@
                 });
 
                 // 4. Funkce pro stažení dat (AJAX) - TOTO NAHRADILO STARÝ KÓD
-                fetch('{{ route("api.pubs") }}') // Voláme novou API routu
+                fetch('{{ route("api.pubs") }}') // Volání nové API routy
                     .then(response => response.json())
                     .then(data => {
                         data.forEach(pub => {
@@ -341,7 +341,7 @@
                         // Přidání celé skupiny clusterů do mapy
                         map.addLayer(markers);
                         
-                        // Schování loading indikátoru
+                        // Schování loading indikátoru  
                         document.getElementById('map-loading').style.display = 'none';
                     })
                     .catch(error => {

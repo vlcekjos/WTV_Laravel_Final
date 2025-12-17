@@ -211,7 +211,7 @@
             @if (Laravel\Jetstream\Jetstream::hasAccountDeletionFeatures()) <x-section-border /> <div class="mt-10 sm:mt-0">@livewire('profile.delete-user-form')</div> @endif
         </div>
 
-        <!-- 2. MOJE RECENZE (S ZKRACUJÍCÍM SE TEXTEM) -->
+        <!-- 2. MOJE RECENZE -->
         <div x-show="activeTab === 'reviews'" style="display: none;" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <x-section-title>
                 <x-slot name="title">Moje recenze</x-slot>
@@ -272,7 +272,7 @@
             </div>
         </div>
 
-        <!-- 3. ADMIN: SPRÁVA RECENZÍ (S ZKRACUJÍCÍM SE TEXTEM) -->
+        <!-- 3. ADMIN: SPRÁVA RECENZÍ -->
         @if(auth()->user()->isAdmin())
         <div x-show="activeTab === 'admin_reviews'" style="display: none;" x-data="{ filterRating: '', filterPub: '', filterUser: '' }" class="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
             <x-section-title><x-slot name="title">Všechny recenze</x-slot><x-slot name="description">Administrátorský přehled recenzí.</x-slot></x-section-title>

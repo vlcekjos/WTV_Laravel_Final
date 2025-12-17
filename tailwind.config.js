@@ -18,7 +18,7 @@ export default {
             },
             
             colors: {
-                // Žlutá barva (figma)
+                // Žlutá barva
                 'zluta': '#EAB308',
             },
             backgroundImage: {

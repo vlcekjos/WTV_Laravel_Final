@@ -17,7 +17,7 @@ class MapController extends Controller
 
     public function apiData()
     {
-        // Načteme hospody včetně uživatelů v recenzích (pro zobrazení jména v levém panelu)
+        // Načítání hospod včetně uživatelů v recenzích (pro zobrazení jména v panelu)
         $pubs = \App\Models\Pub::with('reviews.user')->get();
         
         return response()->json($pubs);

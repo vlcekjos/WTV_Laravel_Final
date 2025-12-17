@@ -13,15 +13,13 @@ use Illuminate\Http\Request;
 |--------------------------------------------------------------------------
 */
 
-// Úprava: Původní kód tě při každém vstupu na '/' odhlásil. 
-// Pokud chceš, aby se po přihlášení dalo dostat na profil/mapu, je lepší toto:
 Route::get('/', function () {
     return Auth::check() ? redirect()->route('mapa') : view('auth.login');
 });
 
 Route::get('/mapa', [MapController::class, 'index'])->name('mapa');
 
-// Recenze - Přidali jsme middleware auth, aby recenze nemohl posílat/mazat nepřihlášený host
+// Recenze - Přidáno middleware auth, aby recenze nemohl posílat/mazat nepřihlášený host
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store');
     Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])->name('reviews.destroy');
@@ -33,13 +31,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/admin/users/{user}', [AdminController::class, 'destroyUser'])->name('admin.users.destroy');
     Route::put('/admin/users/{user}/toggle-role', [AdminController::class, 'toggleUserRole'])->name('admin.users.toggle-role');
     
-    // Správa hospod (Všimni si změny u PUT - v JavaScriptu voláš 'updatePub')
+    // Správa hospod
     Route::post('/admin/pubs', [AdminController::class, 'storePub'])->name('admin.pubs.store');
     Route::put('/admin/pubs/{pub}', [AdminController::class, 'updatePub'])->name('admin.pubs.update');
     Route::delete('/admin/pubs/{pub}', [AdminController::class, 'destroyPub'])->name('admin.pubs.destroy');
 
     // --- API ROUTY PRO DYNAMICKÉ TABULKY ---
-    // Tyto routy vrací JSON data, která tvůj profil potřebuje k "okamžité" aktualizaci
     Route::prefix('admin/api')->group(function () {
         Route::get('/reviews', [AdminController::class, 'apiReviews'])->name('api.admin.reviews');
         Route::get('/users', [AdminController::class, 'apiUsers'])->name('api.admin.users');

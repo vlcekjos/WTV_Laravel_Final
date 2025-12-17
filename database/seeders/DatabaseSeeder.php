@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // 1. Vytvoření uživatelů
-        // Použijeme firstOrCreate, aby se nevytvářeli duplicitně, pokud seeder spustíš víckrát
+        // FirstOrCreate, aby se nevytvářeli duplicitně, pokud seeder spustím víckrát
         $user0 = User::firstOrCreate(
             ['email' => 'admin@e'],
             [

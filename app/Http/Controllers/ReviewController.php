@@ -46,7 +46,7 @@ class ReviewController extends Controller
 
         $review->delete();
 
-        // OPRAVA PRO API: Pokud JavaScript vyžaduje JSON, pošli potvrzení
+        // OPRAVA PRO API: Pokud JavaScript vyžaduje JSON, pošle potvrzení
         if (request()->wantsJson()) {
             return response()->json(['message' => 'Recenze byla úspěšně smazána.']);
         }

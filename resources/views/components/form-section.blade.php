@@ -13,7 +13,7 @@
                 - bg-black (černé pozadí)
                 - border-t, border-x, border-zluta (žluté okraje nahoře a po stranách)
                 - rounded-t-lg (zaoblené horní rohy)
-                - Pokud formulář NEMA tlačítka (actions), dáme border i dolů a zaoblíme i spodek.
+                - Pokud formulář NEMA tlačítka (actions), border i dolů a zaoblit i spodek.
             -->
             <div class="px-4 py-5 bg-black sm:p-6 shadow {{ isset($actions) ? 'sm:rounded-t-lg border-t border-x border-zluta' : 'sm:rounded-lg border border-zluta' }}">
                 <div class="grid grid-cols-6 gap-6">
