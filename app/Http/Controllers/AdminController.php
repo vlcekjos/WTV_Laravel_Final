@@ -17,15 +17,22 @@ class AdminController extends Controller
         }
 
         if ($user->id === Auth::id()) {
-            return back()->dangerBanner('Nemůžete smazat svůj vlastní účet v administraci.');
+            $message = 'Nemůžete smazat svůj vlastní účet v administraci.';
+            return request()->wantsJson() 
+                ? response()->json(['message' => $message], 422) 
+                : back()->dangerBanner($message);
         }
 
         $user->delete();
 
+        if (request()->wantsJson()) {
+            return response()->json(['message' => 'Uživatel byl úspěšně smazán.']);
+        }
+
         return back()->banner('Uživatel byl úspěšně smazán.');
     }
 
-    // NOVÁ METODA: ZMĚNA ROLE
+    // ZMĚNA ROLE
     public function toggleUserRole(User $user)
     {
         if (!Auth::user()->isAdmin()) {
@@ -33,16 +40,24 @@ class AdminController extends Controller
         }
 
         if ($user->id === Auth::id()) {
-            return back()->dangerBanner('Nemůžete odebrat administrátorská práva sami sobě.');
+            $message = 'Nemůžete odebrat administrátorská práva sami sobě.';
+            return request()->wantsJson() 
+                ? response()->json(['message' => $message], 422) 
+                : back()->dangerBanner($message);
         }
 
-        // Prohození hodnoty booleanu (true -> false, false -> true)
         $user->update([
             'is_admin' => !$user->is_admin
         ]);
 
         $roleName = $user->is_admin ? 'Admin' : 'Uživatel';
-        return back()->banner("Role uživatele {$user->name} byla změněna na: {$roleName}.");
+        $message = "Role uživatele {$user->name} byla změněna na: {$roleName}.";
+
+        if (request()->wantsJson()) {
+            return response()->json(['message' => $message]);
+        }
+
+        return back()->banner($message);
     }
 
     // Přidání nové hospody
@@ -95,6 +110,10 @@ class AdminController extends Controller
         }
 
         $pub->delete();
+
+        if (request()->wantsJson()) {
+            return response()->json(['message' => 'Hospoda byla úspěšně smazána.']);
+        }
 
         return back()->banner('Hospoda byla úspěšně smazána.');
     }

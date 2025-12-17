@@ -24,11 +24,76 @@
         editingPubId: null,
         pubForm: { name: '', description: '', latitude: '', longitude: '', street: '', city: 'Plzeň' },
 
+        // Tato funkce stáhne data (uživatele, hospody nebo recenze)
+        async fetchData(type) {
+            try {
+                const response = await fetch(`/admin/api/${type}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await response.json();
+                if (type === 'reviews') this.adminReviews = data;
+                if (type === 'users') this.adminUsers = data;
+                if (type === 'pubs') this.adminPubs = data;
+            } catch (e) { console.error('Chyba načítání:', e); }
+        },
+
+        // Tato funkce provede smazání nebo změnu role
+        async apiAction(url, method = 'DELETE', typeToRefresh) {
+            if (!confirm('Opravdu provést tuto akci?')) return;
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}', 
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json' 
+                    }
+                });
+                if (response.ok) {
+                    this.fetchData(typeToRefresh); // Po smazání hned aktualizuje tabulku
+                } else { 
+                    alert('Akce se nezdařila.'); 
+                }
+            } catch (e) { alert('Chyba komunikace.'); }
+        },
+
+        async handleForm(e, typeToRefresh) {
+            const form = e.target;
+            try {
+                const response = await fetch(form.action, {
+                    method: form.querySelector('input[name=\'_method\']')?.value || form.method,
+                    headers: { 
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: new FormData(form)
+                });
+
+                if (response.ok) {
+                    this.fetchData(typeToRefresh); // Refreshne data v tabulce
+                } else {
+                    const error = await response.json();
+                    alert(error.message || 'Akce se nezdařila.');
+                }
+            } catch (e) { alert('Chyba komunikace.'); }
+        },
+
+        // Tato funkce se spustí při načtení stránky a načte data pro aktuální tab
+        init() {
+            if (this.activeTab.startsWith('admin_')) {
+                this.fetchData(this.activeTab.replace('admin_', ''));
+            }
+        },
+
         isSaving: false,
 
         switchTab(tab) {
             this.activeTab = tab;
             localStorage.setItem('activeProfileTab', tab);
+            // Pokud klikneme na admin záložku, načteme data
+            if (tab === 'admin_reviews') this.fetchData('reviews');
+            if (tab === 'admin_users') this.fetchData('users');
+            if (tab === 'admin_pubs') this.fetchData('pubs');
         },
 
         get filteredMyReviews() {
@@ -194,29 +259,17 @@
                 <select x-model="filterUser" class="bg-gray-900 border border-gray-700 text-white rounded p-2"><option value="">Všichni uživatelé</option>@foreach(\App\Models\User::all() as $user)<option value="{{ $user->id }}">{{ $user->name }}</option>@endforeach</select>
             </div>
             <div class="space-y-4">
-                @foreach(\App\Models\Review::with(['user', 'pub'])->latest()->get() as $review)
+                <template x-for="review in adminReviews" :key="review.id">
                     <div class="bg-gray-900 border border-gray-700 p-4 rounded flex justify-between items-start transition hover:bg-gray-800 hover:border-gray-500"
-                         x-show="(filterRating === '' || '{{ $review->rating }}' == filterRating) && (filterPub === '' || '{{ $review->pub_id }}' == filterPub) && (filterUser === '' || '{{ $review->user_id }}' == filterUser)">
+                        x-show="(filterRating === '' || review.rating == filterRating) && (filterPub === '' || review.pub_id == filterPub) && (filterUser === '' || review.user_id == filterUser)">
                         <div class="flex-1">
-                            <div class="text-zluta font-bold">{{ $review->pub->name ?? 'Neznámá' }}</div>
-                            <div class="text-sm text-gray-400">Autor: <span class="text-white">{{ $review->user->name ?? 'Smazaný' }}</span> | {{ $review->created_at->format('d.m.Y H:i') }} | {{ $review->rating }}/5</div>
-                            
-                            <!-- ZMĚNA: Zkrácený text -->
-                            <div x-data="{ expanded: false, maxLength: 120 }" class="mt-1 text-white italic text-sm">
-                                <span x-text="expanded ? '\u0022' + '{{ addslashes($review->comment) }}' + '\u0022' : ('{{ addslashes($review->comment) }}'.length > maxLength ? '\u0022' + '{{ addslashes(Str::limit($review->comment, 120, '')) }}' + '...' + '\u0022' : '\u0022' + '{{ addslashes($review->comment) }}' + '\u0022')"></span>
-                                @if(strlen($review->comment) > 120)
-                                    <button @click="expanded = !expanded" class="text-zluta text-xs ml-1 hover:underline focus:outline-none">
-                                        <span x-text="expanded ? '(Méně)' : '(Více)'"></span>
-                                    </button>
-                                @endif
-                            </div>
+                            <div class="text-zluta font-bold" x-text="review.pub?.name || 'Neznámá'"></div>
+                            <div class="text-sm text-gray-400">Autor: <span class="text-white" x-text="review.user?.name || 'Smazaný'"></span> | <span x-text="formatDate(review.created_at)"></span> | <span x-text="review.rating + '/5'"></span></div>
+                            <div class="mt-1 text-white italic text-sm" x-text="'\u0022' + review.comment + '\u0022'"></div>
                         </div>
-                        <form method="POST" action="{{ route('reviews.destroy', $review) }}" onsubmit="return confirm('ADMIN: Opravdu smazat?');" class="ml-4">
-                            @csrf @method('DELETE')
-                            <button class="text-red-500 hover:text-red-700 font-bold text-sm border border-red-500 px-3 py-1 rounded hover:bg-red-500 hover:text-black transition">SMAZAT</button>
-                        </form>
+                        <button @click="apiAction('/reviews/' + review.id, 'DELETE', 'reviews')" class="text-red-500 hover:text-red-700 font-bold text-sm border border-red-500 px-3 py-1 rounded hover:bg-red-500 hover:text-black transition ml-4">SMAZAT</button>
                     </div>
-                @endforeach
+                </template>
             </div>
         </div>
 
@@ -230,50 +283,36 @@
                 <table class="w-full text-left text-sm text-gray-400">
                     <thead class="bg-gray-800 text-zluta uppercase"><tr><th class="px-4 py-3">ID</th><th class="px-4 py-3">Jméno</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Role</th><th class="px-4 py-3 text-right">Akce</th></tr></thead>
                     <tbody class="divide-y divide-gray-700">
-                        @foreach(\App\Models\User::all() as $user)
-                            <tr class="transition hover:bg-gray-800" x-show="searchUser === '' || '{{ strtolower($user->name) }}'.includes(searchUser.toLowerCase()) || '{{ strtolower($user->email) }}'.includes(searchUser.toLowerCase())">
-                                <td class="px-4 py-3">{{ $user->id }}</td>
-                                <td class="px-4 py-3 font-bold text-white">{{ $user->name }}</td>
-                                <td class="px-4 py-3">{{ $user->email }}</td>
-                                <td class="px-4 py-3">@if($user->isAdmin()) <span class="text-red-500 font-bold">Admin</span> @else User @endif</td>
+                        <template x-for="user in adminUsers" :key="user.id">
+                            <tr class="transition hover:bg-gray-800" x-show="searchUser === '' || user.name.toLowerCase().includes(searchUser.toLowerCase()) || user.email.toLowerCase().includes(searchUser.toLowerCase())">
+                                <td class="px-4 py-3" x-text="user.id"></td>
+                                <td class="px-4 py-3 font-bold text-white" x-text="user.name"></td>
+                                <td class="px-4 py-3" x-text="user.email"></td>
+                                <td class="px-4 py-3">
+                                    <span x-show="user.is_admin" class="text-red-500 font-bold">Admin</span>
+                                    <span x-show="!user.is_admin">Uživatel</span>
+                                </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end gap-2">
-                                        @if($user->id !== auth()->id())
-                                            <form method="POST" action="{{ route('admin.users.toggle-role', $user) }}" onsubmit="return confirm('Opravdu změnit oprávnění tohoto uživatele?');"> 
-                                                @csrf @method('PUT') 
-                                                
-                                                @if($user->isAdmin())
-                                                    <button class="bg-gray-700 text-orange-500 hover:bg-orange-500 hover:text-white p-2 rounded transition" title="Odebrat Admin práva">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 4.5-15 15" class="text-red-500 font-bold" />
-                                                        </svg>
-                                                    </button>
-                                                @else
-                                                    <button class="bg-gray-700 text-green-500 hover:bg-green-600 hover:text-white p-2 rounded transition" title="Udělit Admin práva">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
-                                                        </svg>
-                                                    </button>
-                                                @endif
-                                            </form>
-                                            
-                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Smazat?');"> 
-                                                @csrf @method('DELETE') 
-                                                <button class="bg-gray-700 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition" title="Smazat uživatele">
+                                        <template x-if="user.id !== {{ auth()->id() }}">
+                                            <div class="flex gap-2">
+                                                <button @click="apiAction('/admin/users/' + user.id + '/toggle-role', 'PUT', 'users')" 
+                                                        class="bg-gray-700 text-orange-500 hover:bg-orange-500 hover:text-white p-2 rounded transition" title="Změnit roli">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296a3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" /></svg>
+                                                </button>
+                                                <button @click="apiAction('/admin/users/' + user.id, 'DELETE', 'users')" 
+                                                        class="bg-gray-700 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded transition" title="Smazat">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
-                                                </button> 
-                                            </form>
-                                        @else 
-                                            <span class="text-gray-500 italic px-2">Ty</span> 
-                                        @endif
-                                        <button @click="openUserDetail({{ $user }})" class="bg-gray-700 text-blue-400 hover:bg-blue-600 hover:text-white p-2 rounded transition" title="Detail">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                                </button>
+                                            </div>
+                                        </template>
+                                        <button @click="openUserDetail(user)" class="bg-gray-700 text-blue-400 hover:bg-blue-600 hover:text-white p-2 rounded transition" title="Detail">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" /></svg>
                                         </button>
                                     </div>
                                 </td>
                             </tr>
-                        @endforeach
+                        </template>
                     </tbody>
                 </table>
             </div>
@@ -289,20 +328,20 @@
                 <input type="text" x-model="searchPub" placeholder="Hledat podnik..." class="w-full bg-gray-900 border border-gray-700 text-white rounded p-2">
             </div>
             <div class="mt-6 space-y-4">
-                @foreach(\App\Models\Pub::all() as $pub)
+                <template x-for="pub in adminPubs" :key="pub.id">
                     <div class="bg-gray-900 border border-gray-700 p-4 rounded flex justify-between items-center transition hover:bg-gray-800 hover:border-gray-500"
-                         x-show="searchPub === '' || '{{ strtolower($pub->name) }}'.includes(searchPub.toLowerCase()) || '{{ strtolower($pub->street) }}'.includes(searchPub.toLowerCase()) || '{{ strtolower($pub->city) }}'.includes(searchPub.toLowerCase())">
+                        x-show="searchPub === '' || pub.name.toLowerCase().includes(searchPub.toLowerCase())">
                         <div>
-                            <div class="text-white font-bold text-lg">{{ $pub->name }}</div>
-                            <div class="text-gray-500 text-sm">{{ $pub->street }}, {{ $pub->city }}</div>
-                            <div class="text-gray-600 text-xs mt-1">GPS: {{ $pub->latitude }}, {{ $pub->longitude }}</div>
+                            <div class="text-white font-bold text-lg" x-text="pub.name"></div>
+                            <div class="text-gray-500 text-sm" x-text="pub.street + ', ' + pub.city"></div>
+                            <div class="text-gray-600 text-xs mt-1" x-text="'GPS: ' + pub.latitude + ', ' + pub.longitude"></div>
                         </div>
                         <div class="flex items-center space-x-3">
-                            <button @click="openEditPubModal({{ $pub }})" class="text-blue-400 hover:text-white border border-blue-400 hover:bg-blue-600 px-3 py-1 rounded transition">UPRAVIT</button>
-                            <form method="POST" action="{{ route('admin.pubs.destroy', $pub) }}" onsubmit="return confirm('Smazat hospodu {{ $pub->name }}?');"> @csrf @method('DELETE') <button class="text-red-500 hover:text-white border border-red-500 hover:bg-red-600 px-3 py-1 rounded transition">SMAZAT</button> </form>
+                            <button @click="openEditPubModal(pub)" class="text-blue-400 hover:text-white border border-blue-400 hover:bg-blue-600 px-3 py-1 rounded transition">UPRAVIT</button>
+                            <button @click="apiAction('/admin/pubs/' + pub.id, 'DELETE', 'pubs')" class="text-red-500 hover:text-white border border-red-500 hover:bg-red-600 px-3 py-1 rounded transition">SMAZAT</button>
                         </div>
                     </div>
-                @endforeach
+                </template>
             </div>
         </div>
         @endif
