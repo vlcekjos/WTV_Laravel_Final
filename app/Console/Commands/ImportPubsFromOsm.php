@@ -26,7 +26,7 @@ class ImportPubsFromOsm extends Command
     public function handle()
     {
         $radius = $this->argument('radius');
-        $this->info("⏳ Připojuji se k Overpass API (Rádius: {$radius}m kolem Plzně)...");
+        $this->info("Připojuji se k Overpass API (Rádius: {$radius}m kolem Plzně)...");
 
         // 1. Konfigurace středu hledání (Náměstí Republiky, Plzeň)
         $lat = 49.7475;
@@ -51,7 +51,7 @@ class ImportPubsFromOsm extends Command
             ]);
 
             if ($response->failed()) {
-                $this->error('❌ Chyba komunikace s API: ' . $response->status());
+                $this->error('Chyba komunikace s API: ' . $response->status());
                 return 1;
             }
 
@@ -59,12 +59,12 @@ class ImportPubsFromOsm extends Command
             $elements = $data['elements'] ?? [];
 
             if (empty($elements)) {
-                $this->warn('⚠️ Nebyla nalezena žádná data. Zkus zvětšit rádius.');
+                $this->warn('Nebyla nalezena žádná data. Zkus zvětšit rádius.');
                 return 0;
             }
 
             $count = count($elements);
-            $this->info("✅ Staženo {$count} míst. Zpracovávám a ukládám do DB...");
+            $this->info("Staženo {$count} míst. Zpracovávám a ukládám do DB...");
 
             // 4. Příprava dat pro hromadné vložení (Batch Insert)
             $batch = [];
@@ -132,12 +132,12 @@ class ImportPubsFromOsm extends Command
                 );
             }
 
-            $this->info("🎉 Hotovo! Databáze je aktuální.");
+            $this->info("Hotovo! Databáze je aktuální.");
             return 0;
 
         } catch (\Exception $e) {
             $this->newLine();
-            $this->error('❌ Kritická chyba: ' . $e->getMessage());
+            $this->error('Kritická chyba: ' . $e->getMessage());
             return 1;
         }
     }
